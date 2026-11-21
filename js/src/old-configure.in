@@ -1084,7 +1084,8 @@ dnl = pthread support
 dnl = Start by checking whether the system support pthreads
 dnl ========================================================
 case "$target_os" in
-darwin*)
+darwin*|haiku*)
+    dnl Haiku: pthreads are in libroot, which is always linked.
     USE_PTHREADS=1
     ;;
 *)

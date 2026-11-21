@@ -18,6 +18,10 @@
 #include <pthread_np.h>
 #endif
 
+#if defined(XP_HAIKU)
+#include <OS.h>
+#endif
+
 #if defined(__linux__)
 #include <sys/prctl.h>
 #endif
@@ -159,6 +163,8 @@ js::ThisThread::SetName(const char* name)
   pthread_set_name_np(pthread_self(), name);
 #elif defined(__NetBSD__)
   rv = pthread_setname_np(pthread_self(), "%s", (void*)name);
+#elif defined(XP_HAIKU)
+  rv = rename_thread(find_thread(nullptr), name) == B_OK ? 0 : -1;
 #else
   rv = pthread_setname_np(pthread_self(), name);
 #endif
@@ -171,7 +177,14 @@ js::ThisThread::GetName(char* nameBuffer, size_t len)
   MOZ_RELEASE_ASSERT(len >= 16);
 
   int rv = -1;
-#ifdef HAVE_PTHREAD_GETNAME_NP
+#if defined(XP_HAIKU)
+  thread_info info;
+  if (get_thread_info(find_thread(nullptr), &info) == B_OK) {
+    strncpy(nameBuffer, info.name, len - 1);
+    nameBuffer[len - 1] = '\0';
+    rv = 0;
+  }
+#elif defined(HAVE_PTHREAD_GETNAME_NP)
   rv = pthread_getname_np(pthread_self(), nameBuffer, len);
 #elif defined(__linux__)
   rv = prctl(PR_GET_NAME, reinterpret_cast<unsigned long>(nameBuffer));
