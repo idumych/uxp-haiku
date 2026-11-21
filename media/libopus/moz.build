@@ -42,7 +42,7 @@ if CONFIG['MOZ_DEBUG']:
     DEFINES['ENABLE_ASSERTIONS'] = True
 
 if CONFIG['OS_ARCH'] in ('Linux', 'Darwin', 'DragonFly', 'FreeBSD',
-                         'NetBSD', 'OpenBSD'):
+                         'NetBSD', 'OpenBSD', 'Haiku'):
     DEFINES['HAVE_LRINTF'] = True
 
 if CONFIG['OS_ARCH'] == 'WINNT':

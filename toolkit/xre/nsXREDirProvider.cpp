@@ -57,6 +57,9 @@
 #ifdef XP_UNIX
 #include <ctype.h>
 #endif
+#ifdef XP_HAIKU
+#include <FindDirectory.h>
+#endif
 
 #if defined(XP_MACOSX)
 #define APP_REGISTRY_NAME "Application Registry"
@@ -1322,6 +1325,16 @@ nsXREDirProvider::GetUserDataDirectoryHome(nsIFile** aFile, bool aLocal)
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = NS_NewLocalFile(path, true, getter_AddRefs(localDir));
+#elif defined(XP_HAIKU)
+  // ~/config/settings for profiles, ~/config/cache for the local (cache) dir.
+  char path[B_PATH_NAME_LENGTH];
+  status_t err = find_directory(aLocal ? B_USER_CACHE_DIRECTORY
+                                       : B_USER_SETTINGS_DIRECTORY,
+                                -1, true, path, sizeof(path));
+  if (err != B_OK)
+    return NS_ERROR_FAILURE;
+  rv = NS_NewNativeLocalFile(nsDependentCString(path), true,
+                             getter_AddRefs(localDir));
 #elif defined(XP_UNIX)
   const char* homeDir = getenv("HOME");
   if (!homeDir || !*homeDir)
@@ -1449,7 +1462,7 @@ nsXREDirProvider::AppendSysUserExtensionPath(nsIFile* aFile)
 
   nsresult rv;
 
-#if defined (XP_MACOSX) || defined(XP_WIN)
+#if defined (XP_MACOSX) || defined(XP_WIN) || defined(XP_HAIKU)
 
   static const char* const sXR = "Mozilla";
   rv = aFile->AppendNative(nsDependentCString(sXR));
@@ -1508,11 +1521,12 @@ nsXREDirProvider::AppendProfilePath(nsIFile* aFile,
 
   nsresult rv;
 
-#if defined (XP_MACOSX)
+#if defined (XP_MACOSX) || defined(XP_HAIKU)
   if (!profile.IsEmpty()) {
     rv = AppendProfileString(aFile, profile.get());
   }
   else {
+    // Haiku follows the Mac layout: ~/config/settings/<AppName>.
     // Note that MacOS ignores the vendor when creating the profile hierarchy -
     // all application preferences directories live alongside one another in
     // ~/Library/Application Support/
