@@ -2227,6 +2227,15 @@ gtk2)
     USE_FC_FREETYPE=1
     ;;
 
+haiku)
+    dnl Native Haiku widget backend (widget/haiku): Be API kits. libroot is
+    dnl implicit; libnetwork/libbsd are also in LDFLAGS for the whole tree.
+    USE_FC_FREETYPE=1
+    TK_CFLAGS=""
+    TK_LIBS='-lbe -ltranslation -lmedia -lnetwork -lbsd'
+    MOZ_USER_DIR="Mozilla"
+    ;;
+
 cocoa)
     LDFLAGS="$LDFLAGS -framework Cocoa -lobjc"
     # Use -Wl as a trick to avoid -framework and framework names from
