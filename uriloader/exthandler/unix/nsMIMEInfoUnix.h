@@ -17,6 +17,9 @@ public:
   nsMIMEInfoUnix(const nsACString& aType, HandlerClass aClass) :
     nsMIMEInfoImpl(aType, aClass) {}
   static bool HandlerExists(const char *aProtocolScheme);
+#if defined(XP_HAIKU)
+  static bool HaikuHasPreferredApp(const nsACString& aType);
+#endif
 
 protected:
   NS_IMETHOD GetHasDefaultHandler(bool *_retval);

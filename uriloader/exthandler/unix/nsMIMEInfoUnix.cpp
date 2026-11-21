@@ -13,11 +13,56 @@
 #ifdef MOZ_ENABLE_DBUS
 #include "nsDBusHandlerApp.h"
 #endif
+#if defined(XP_HAIKU)
+#include <spawn.h>
+#include <sys/wait.h>
+#pragma GCC visibility push(default)
+#include <Mime.h>
+#pragma GCC visibility pop
+#include "nsIFile.h"
+
+extern char** environ;
+
+// Whether Haiku has a preferred application for this MIME type.
+bool
+nsMIMEInfoUnix::HaikuHasPreferredApp(const nsACString& aType)
+{
+  BMimeType mime(PromiseFlatCString(aType).get());
+  char app[B_MIME_TYPE_LENGTH];
+  return mime.InitCheck() == B_OK && mime.GetPreferredApp(app) == B_OK &&
+         app[0] != '\0';
+}
+
+// Haiku has no GIO: hand URIs and files to /bin/open, which launches the
+// application registered for the scheme or file type.
+static nsresult
+HaikuOpen(const nsACString& aTarget)
+{
+  nsAutoCString target(aTarget);
+  char openPath[] = "/bin/open";
+  char* argv[] = { openPath, target.BeginWriting(), nullptr };
+  pid_t pid;
+  if (posix_spawn(&pid, openPath, nullptr, nullptr, argv, environ) != 0)
+    return NS_ERROR_FAILURE;
+  int status = 0;
+  if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) ||
+      WEXITSTATUS(status) != 0)
+    return NS_ERROR_FAILURE;
+  return NS_OK;
+}
+#endif
 
 nsresult
 nsMIMEInfoUnix::LoadUriInternal(nsIURI * aURI)
 {
+#if defined(XP_HAIKU)
+  nsAutoCString spec;
+  nsresult rv = aURI->GetSpec(spec);
+  NS_ENSURE_SUCCESS(rv, rv);
+  return HaikuOpen(spec);
+#else
   return nsGNOMERegistry::LoadURL(aURI);
+#endif
 }
 
 NS_IMETHODIMP
@@ -30,6 +75,16 @@ nsMIMEInfoUnix::GetHasDefaultHandler(bool *_retval)
     return nsMIMEInfoImpl::GetHasDefaultHandler(_retval);
 
   *_retval = false;
+
+#if defined(XP_HAIKU)
+  if (mClass == eProtocolInfo) {
+    *_retval = HaikuHasPreferredApp(
+      NS_LITERAL_CSTRING("application/x-vnd.Be.URL.") + mSchemeOrType);
+  } else {
+    *_retval = HaikuHasPreferredApp(mSchemeOrType);
+  }
+  return NS_OK;
+#endif
 
   if (mClass == eProtocolInfo) {
     *_retval = nsGNOMERegistry::HandlerExists(mSchemeOrType.get());
@@ -72,6 +127,10 @@ nsMIMEInfoUnix::LaunchDefaultWithFile(nsIFile *aFile)
 
   nsAutoCString nativePath;
   aFile->GetNativePath(nativePath);
+
+#if defined(XP_HAIKU)
+  return HaikuOpen(nativePath);
+#endif
 
 #if defined(MOZ_ENABLE_CONTENTACTION)
   QUrl uri = QUrl::fromLocalFile(QString::fromUtf8(nativePath.get()));

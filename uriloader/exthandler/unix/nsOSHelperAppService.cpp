@@ -1154,6 +1154,13 @@ nsresult nsOSHelperAppService::OSProtocolHandlerExists(const char * aProtocolSch
   *aHandlerExists = nsGNOMERegistry::HandlerExists(aProtocolScheme);
 #endif
 
+#if defined(XP_HAIKU)
+  // Haiku registers URL handlers as application/x-vnd.Be.URL.<scheme>.
+  *aHandlerExists = nsMIMEInfoUnix::HaikuHasPreferredApp(
+    NS_LITERAL_CSTRING("application/x-vnd.Be.URL.") +
+    nsDependentCString(aProtocolScheme));
+#endif
+
   return NS_OK;
 }
 
