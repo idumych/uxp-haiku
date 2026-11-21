@@ -1133,8 +1133,18 @@ HandleFault(int signum, siginfo_t* info, void* ctx)
         return false;
 
     const Instance* instance = activation->compartment()->wasm.lookupInstanceDeprecated(pc);
-    if (!instance || !instance->codeSegment().containsFunctionPC(pc))
+    if (!instance)
         return false;
+
+    if (!instance->codeSegment().containsFunctionPC(pc)) {
+        // Some kernels (Haiku) can deliver a pending interrupt signal
+        // (JitInterruptHandler) between a faulting heap access and this
+        // handler, so we get here with pc already redirected to the interrupt
+        // stub. As on Windows (see above), silence the fault: it will
+        // retrigger when the interrupt stub jumps back to resumePC.
+        return pc == instance->codeSegment().interruptCode() &&
+               instance->codeSegment().containsFunctionPC(activation->resumePC());
+    }
 
     uint8_t* faultingAddress = reinterpret_cast<uint8_t*>(info->si_addr);
 
