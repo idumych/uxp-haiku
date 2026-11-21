@@ -6,8 +6,6 @@
 
 #include "WindowSurfaceX11SHM.h"
 
-#ifdef MOZ_HAVE_SHMIMAGE
-
 namespace mozilla {
 namespace widget {
 
@@ -33,5 +31,3 @@ WindowSurfaceX11SHM::Commit(const LayoutDeviceIntRegion& aInvalidRegion)
 
 } // namespace widget
 } // namespace mozilla
-
-#endif // MOZ_HAVE_SHMIMAGE

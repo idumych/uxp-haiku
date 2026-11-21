@@ -7,11 +7,10 @@
 #ifndef _MOZILLA_WIDGET_WINDOW_SURFACE_X11_SHM_H
 #define _MOZILLA_WIDGET_WINDOW_SURFACE_X11_SHM_H
 
-#include "nsShmImage.h"
-
-#ifdef MOZ_HAVE_SHMIMAGE
+#ifdef MOZ_X11
 
 #include "mozilla/widget/WindowSurface.h"
+#include "nsShmImage.h"
 
 namespace mozilla {
 namespace widget {
@@ -32,5 +31,5 @@ private:
 }  // namespace widget
 }  // namespace mozilla
 
-#endif // MOZ_HAVE_SHMIMAGE
+#endif // MOZ_X11
 #endif // _MOZILLA_WIDGET_WINDOW_SURFACE_X11_SHM_H

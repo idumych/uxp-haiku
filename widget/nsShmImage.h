@@ -7,8 +7,7 @@
 #ifndef __mozilla_widget_nsShmImage_h__
 #define __mozilla_widget_nsShmImage_h__
 
-// Haiku's Xlibe has no xcb/MIT-SHM (its XShm is a thin XPutImage wrapper).
-#if defined(MOZ_X11) && !defined(XP_HAIKU)
+#if defined(MOZ_X11)
 #  define MOZ_HAVE_SHMIMAGE
 #endif
 

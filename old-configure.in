@@ -1349,18 +1349,9 @@ if test -n "$MOZ_X11"; then
     LDFLAGS="$XLDFLAGS $LDFLAGS"
     AC_CHECK_LIB(X11, XDrawLines, [XLIBS="-lX11 $XLIBS"],
         [MISSING_X="$MISSING_X -lX11"], $XLIBS)
-    if test "$OS_ARCH" = "Haiku"; then
-        dnl Xlibe's libXext has XShm and shape but no XextAddDisplay.
-        AC_CHECK_LIB(Xext, XShmPutImage, [XEXT_LIBS="-lXext"],
-            [MISSING_X="$MISSING_X -lXext"], $XLIBS)
-    else
     AC_CHECK_LIB(Xext, XextAddDisplay, [XEXT_LIBS="-lXext"],
         [MISSING_X="$MISSING_X -lXext"], $XLIBS)
-    fi
 
-    dnl Haiku's Xlibe (Xlib on the Be API) provides only libX11 and libXext:
-    dnl no Xt/ICE/SM, no xcb, no X11-xcb, no Xss. Code using them is guarded.
-    if test "$OS_ARCH" != "Haiku"; then
     AC_CHECK_LIB(Xt, XtFree, [ XT_LIBS="-lXt"], [
         unset ac_cv_lib_Xt_XtFree
         AC_CHECK_LIB(ICE, IceFlush, [XT_LIBS="-lICE $XT_LIBS"],, $XT_LIBS $XLIBS)
@@ -1386,7 +1377,6 @@ if test -n "$MOZ_X11"; then
         AC_CHECK_LIB(Xss, XScreenSaverQueryInfo,
             [XSS_LIBS="-lXss $XEXT_LIBS $XLIBS"
              AC_DEFINE(HAVE_LIBXSS)],, $XEXT_LIBS $XLIBS))
-    fi # OS_ARCH != Haiku
 
     LDFLAGS="$_SAVE_LDFLAGS"
     LIBS="$_SAVE_LIBS"
@@ -4525,8 +4515,7 @@ if test "$MOZ_TREE_CAIRO"; then
     AC_SUBST(QT_SURFACE_FEATURE)
     AC_SUBST(TEE_SURFACE_FEATURE)
 
-    dnl On Haiku, Xrender is a no-op stub built into libxul (widget/x11/haiku).
-    if test "$MOZ_X11" -a "$OS_ARCH" != "Haiku"; then
+    if test "$MOZ_X11"; then
         MOZ_CAIRO_OSLIBS="$MOZ_CAIRO_OSLIBS $XLDFLAGS -lXrender"
     fi
 
