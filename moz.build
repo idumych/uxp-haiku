@@ -71,10 +71,9 @@ if not CONFIG['MOZ_DISABLE_PLATFORM']:
             # Hopefully build sqlite before nss
             DIRS += ['db/sqlite3/src']
 
-            DIRS += [
-                'config/external',
-                'security',
-            ]
+            DIRS += ['config/external']
+            if not CONFIG['MOZ_SYSTEM_NSS']:
+                DIRS += ['security']
 
         if CONFIG['BUILD_CTYPES']:
             DIRS += ['config/external/ffi']
