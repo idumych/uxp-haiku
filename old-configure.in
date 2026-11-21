@@ -1150,6 +1150,17 @@ dnl default mode that relies on relative symlinks being handled a certain way.
     MOZ_FIX_LINK_PATHS="-Wl,-rpath,'\$\$ORIGIN' -Wl,-z,origin"
     ;;
 
+*-haiku*)
+    dnl libroot already provides libc, libm, pthreads, dlopen and
+    dnl clock_gettime; sockets and the resolver live in libnetwork and
+    dnl some BSD extensions in libbsd.
+    LDFLAGS="$LDFLAGS -lnetwork -lbsd"
+    if test "$GNU_CC" -o "$GNU_CXX"; then
+        MOZ_PGO_OPTIMIZE_FLAGS="-O3"
+        MOZ_OPTIMIZE_FLAGS="-O2"
+    fi
+    ;;
+
 esac
 
 AC_SUBST_LIST(MMX_FLAGS)
@@ -1383,7 +1394,8 @@ dnl = pthread support
 dnl = Start by checking whether the system support pthreads
 dnl ========================================================
 case "$target_os" in
-darwin*)
+darwin*|haiku*)
+    dnl On Haiku, pthreads are part of libroot.
     MOZ_USE_PTHREADS=1
     ;;
 *)
@@ -2940,7 +2952,7 @@ dnl ========================================================
 
 dnl If using Desktop Linux, ensure that the PA library is available
 case "$OS_TARGET" in
-WINNT|Darwin)
+WINNT|Darwin|Haiku)
     ;;
 *)
     MOZ_PULSEAUDIO=1
