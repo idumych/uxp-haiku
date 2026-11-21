@@ -24,5 +24,8 @@ if CONFIG['OS_ARCH'] == 'WINNT':
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     platform = 'mac'
 
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'haiku':
+    platform = 'haiku'
+
 if platform:
     LOCAL_INCLUDES += [platform]
