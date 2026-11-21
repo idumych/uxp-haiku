@@ -933,6 +933,12 @@ x86_64-*-solaris*)
     MOZ_FIX_LINK_PATHS="-Wl,-rpath,'\$\$ORIGIN' -Wl,-z,origin"
     ;;
 
+*-haiku*)
+    dnl libroot already provides libc, libm, pthreads, dlopen and
+    dnl clock_gettime; sockets live in libnetwork, BSD extras in libbsd.
+    LDFLAGS="$LDFLAGS -lnetwork -lbsd"
+    ;;
+
 esac
 
 dnl Only one oddball right now (QNX), but this gives us flexibility
@@ -1085,7 +1091,7 @@ dnl = Start by checking whether the system support pthreads
 dnl ========================================================
 case "$target_os" in
 darwin*|haiku*)
-    dnl Haiku: pthreads are in libroot, which is always linked.
+    dnl On Haiku, pthreads are part of libroot.
     USE_PTHREADS=1
     ;;
 *)

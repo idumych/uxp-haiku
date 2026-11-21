@@ -1150,6 +1150,17 @@ dnl default mode that relies on relative symlinks being handled a certain way.
     MOZ_FIX_LINK_PATHS="-Wl,-rpath,'\$\$ORIGIN' -Wl,-z,origin"
     ;;
 
+*-haiku*)
+    dnl libroot already provides libc, libm, pthreads, dlopen and
+    dnl clock_gettime; sockets and the resolver live in libnetwork and
+    dnl some BSD extensions in libbsd.
+    LDFLAGS="$LDFLAGS -lnetwork -lbsd"
+    if test "$GNU_CC" -o "$GNU_CXX"; then
+        MOZ_PGO_OPTIMIZE_FLAGS="-O3"
+        MOZ_OPTIMIZE_FLAGS="-O2"
+    fi
+    ;;
+
 esac
 
 AC_SUBST_LIST(MMX_FLAGS)
@@ -1383,7 +1394,8 @@ dnl = pthread support
 dnl = Start by checking whether the system support pthreads
 dnl ========================================================
 case "$target_os" in
-darwin*)
+darwin*|haiku*)
+    dnl On Haiku, pthreads are part of libroot.
     MOZ_USE_PTHREADS=1
     ;;
 *)
@@ -1910,9 +1922,24 @@ esac
 
 MOZ_CONFIG_NSPR()
 
-# TODO: We need to find a better place to define this include
-NSS_CFLAGS="-I${DIST}/include/nss"
-AC_SUBST(NSS_CFLAGS)
+dnl ========================================================
+dnl = --with-system-nss: use the system NSS (found with pkg-config)
+dnl = instead of building security/nss
+dnl ========================================================
+MOZ_ARG_WITH_BOOL(system-nss,
+[  --with-system-nss       Use the system NSS (found with pkg-config)],
+    _USE_SYSTEM_NSS=1,
+    _USE_SYSTEM_NSS=)
+
+if test -n "$_USE_SYSTEM_NSS"; then
+    PKG_CHECK_MODULES(NSS, nss >= 3.90, [MOZ_SYSTEM_NSS=1],
+        [AC_MSG_ERROR([--with-system-nss given but no usable nss.pc was found])])
+else
+    # TODO: We need to find a better place to define this include
+    dnl NSS_CFLAGS/NSS_LIBS are AC_SUBST_LIST'ed by PKG_CHECK_MODULES above.
+    NSS_CFLAGS="-I${DIST}/include/nss"
+fi
+AC_SUBST(MOZ_SYSTEM_NSS)
 
 if test -z "$SKIP_LIBRARY_CHECKS"; then
 dnl system JPEG support
@@ -2198,6 +2225,15 @@ gtk3)
 
 gtk2)
     USE_FC_FREETYPE=1
+    ;;
+
+haiku)
+    dnl Native Haiku widget backend (widget/haiku): Be API kits. libroot is
+    dnl implicit; libnetwork/libbsd are also in LDFLAGS for the whole tree.
+    USE_FC_FREETYPE=1
+    TK_CFLAGS=""
+    TK_LIBS='-lbe -ltranslation -lmedia -lnetwork -lbsd'
+    MOZ_USER_DIR="Mozilla"
     ;;
 
 cocoa)
@@ -2923,7 +2959,7 @@ dnl ========================================================
 
 dnl If using Desktop Linux, ensure that the PA library is available
 case "$OS_TARGET" in
-WINNT|Darwin)
+WINNT|Darwin|Haiku)
     ;;
 *)
     MOZ_PULSEAUDIO=1
