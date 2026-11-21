@@ -12,6 +12,11 @@ SOURCES += [
 SOURCES += [
     'nsUNIXCharset.cpp',
 ]
+
+if CONFIG['OS_ARCH'] == 'Haiku':
+    SOURCES += [
+        'nsHaikuLocale.cpp',
+    ]
 GENERATED_FILES = [
     'unixcharset.properties.h',
 ]

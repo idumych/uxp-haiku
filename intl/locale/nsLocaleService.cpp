@@ -38,6 +38,11 @@ const char* LocaleList[LocaleListLength] =
 	NSILOCALE_MESSAGE
 };
 
+#if defined(XP_HAIKU)
+// unix/nsHaikuLocale.cpp
+bool GetHaikuPreferredLanguage(nsACString& aLanguage);
+#endif
+
 #define NSILOCALE_MAX_ACCEPT_LANGUAGE	16
 #define NSILOCALE_MAX_ACCEPT_LENGTH		18
 
@@ -120,6 +125,16 @@ nsLocaleService::nsLocaleService(void)
     // Get system configuration
     const char* lang = getenv("LANG");
 
+#if defined(XP_HAIKU)
+    // Without LANG/LC_*, use the language chosen in Haiku's Locale
+    // preferences instead of setlocale()'s "C".
+    nsAutoCString haikuLanguage;
+    if (!getenv("LC_ALL") && !getenv("LC_MESSAGES") && !lang &&
+        GetHaikuPreferredLanguage(haikuLanguage)) {
+        lang = haikuLanguage.get();
+    }
+#endif
+
     nsAutoString xpLocale, platformLocale;
     nsAutoString category, category_platform;
     int i;
@@ -127,7 +142,12 @@ nsLocaleService::nsLocaleService(void)
     for( i = 0; i < LocaleListLength; i++ ) {
         nsresult result;
         // setlocale( , "") evaluates LC_* and LANG
+#if defined(XP_HAIKU)
+        char* lc_temp = haikuLanguage.IsEmpty() ?
+            setlocale(posix_locale_category[i], "") : nullptr;
+#else
         char* lc_temp = setlocale(posix_locale_category[i], "");
+#endif
         CopyASCIItoUTF16(LocaleList[i], category);
         category_platform = category;
         category_platform.AppendLiteral("##PLATFORM");
