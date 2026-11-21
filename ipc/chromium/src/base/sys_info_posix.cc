@@ -22,6 +22,10 @@
 #include <sys/sysctl.h>
 #endif
 
+#if defined(OS_HAIKU)
+#include <OS.h>
+#endif
+
 #include "base/logging.h"
 #include "base/string_util.h"
 
@@ -73,6 +77,14 @@ int64_t SysInfo::AmountOfPhysicalMemory() {
     return memSize;
   }
   return 0;
+
+#elif defined(OS_HAIKU)
+  system_info info;
+  if (get_system_info(&info) != B_OK) {
+    NOTREACHED();
+    return 0;
+  }
+  return static_cast<int64_t>(info.max_pages) * B_PAGE_SIZE;
 
 #else
   long pages = sysconf(_SC_PHYS_PAGES);

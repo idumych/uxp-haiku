@@ -18,7 +18,8 @@
 #ifndef STDOUT_FILENO
 #define STDOUT_FILENO 1
 #endif
-#elif defined(OS_LINUX) || defined(OS_SOLARIS) || defined(__GLIBC__)
+#elif defined(OS_LINUX) || defined(OS_SOLARIS) || defined(OS_HAIKU) || \
+      defined(__GLIBC__)
 #include <dirent.h>
 #include <limits.h>
 #include <sys/types.h>
