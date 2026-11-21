@@ -15,6 +15,10 @@
 #  include <pthread_np.h>
 # endif
 
+# if defined(XP_HAIKU)
+#  include <OS.h>
+# endif
+
 # if defined(XP_LINUX) && defined(__GLIBC__)
 #  include <dlfcn.h>
 #  include <sys/syscall.h>
@@ -73,6 +77,18 @@ js::GetNativeStackBaseImpl()
 	 stack_t st;
 	 stack_getbounds(&st);
 	 return static_cast<char*>(st.ss_sp) + st.ss_size;
+}
+
+#elif defined(XP_HAIKU)
+
+JS_STATIC_ASSERT(JS_STACK_GROWTH_DIRECTION < 0);
+
+void*
+js::GetNativeStackBaseImpl()
+{
+    thread_info info;
+    get_thread_info(find_thread(nullptr), &info);
+    return info.stack_end;
 }
 
 #elif defined(XP_LINUX) && defined(__GLIBC__)
