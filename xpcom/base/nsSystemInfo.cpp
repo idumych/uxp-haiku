@@ -44,6 +44,10 @@
 #include <string>
 #endif
 
+#ifdef XP_HAIKU
+#include <OS.h>
+#endif
+
 #ifdef XP_MACOSX
 #include <sys/sysctl.h>
 #endif
@@ -352,7 +356,19 @@ nsSystemInfo::Init()
   SetInt32Property(NS_LITERAL_STRING("pagesize"), PR_GetPageSize());
   SetInt32Property(NS_LITERAL_STRING("pageshift"), PR_GetPageShift());
   SetInt32Property(NS_LITERAL_STRING("memmapalign"), PR_GetMemMapAlignment());
+#if defined(XP_HAIKU)
+  {
+    // NSPR may not know how to get this on Haiku.
+    uint64_t memSize = PR_GetPhysicalMemorySize();
+    system_info sysInfo;
+    if (get_system_info(&sysInfo) == B_OK) {
+      memSize = uint64_t(sysInfo.max_pages) * B_PAGE_SIZE;
+    }
+    SetUint64Property(NS_LITERAL_STRING("memsize"), memSize);
+  }
+#else
   SetUint64Property(NS_LITERAL_STRING("memsize"), PR_GetPhysicalMemorySize());
+#endif
   SetUint32Property(NS_LITERAL_STRING("umask"), nsSystemInfo::gUserUmask);
 
   uint64_t virtualMem = 0;
