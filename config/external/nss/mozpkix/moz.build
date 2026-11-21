@@ -1,0 +1,39 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# With --with-system-nss, mozpkix (which system NSS does not ship) is still
+# built statically from the in-tree NSS sources.
+Library('mozpkix')
+
+_pkix = '/security/nss/lib/mozpkix'
+
+EXPORTS.mozpkix += [_pkix + '/include/pkix/' + h for h in [
+    'Input.h',
+    'pkix.h',
+    'pkixc.h',
+    'pkixcheck.h',
+    'pkixder.h',
+    'pkixnss.h',
+    'pkixtypes.h',
+    'pkixutil.h',
+    'Result.h',
+    'Time.h',
+]]
+
+SOURCES += [_pkix + '/lib/' + f for f in [
+    'pkixbuild.cpp',
+    'pkixc.cpp',
+    'pkixcert.cpp',
+    'pkixcheck.cpp',
+    'pkixder.cpp',
+    'pkixnames.cpp',
+    'pkixnss.cpp',
+    'pkixocsp.cpp',
+    'pkixresult.cpp',
+    'pkixtime.cpp',
+    'pkixverify.cpp',
+]]
+
+ALLOW_COMPILER_WARNINGS = True

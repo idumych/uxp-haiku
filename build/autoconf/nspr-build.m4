@@ -31,6 +31,20 @@ MOZ_ARG_WITH_STRING(nspr-libs,
                           See --with-nspr-cflags for more details.],
     NSPR_LIBS=$withval)
 
+dnl --with-system-nspr: find the system NSPR with pkg-config and use it
+dnl like --with-nspr-cflags/--with-nspr-libs. Sub-configures (js/src) get
+dnl the resulting flags passed explicitly, so only look it up when no flags
+dnl were given on the command line.
+MOZ_ARG_WITH_BOOL(system-nspr,
+[  --with-system-nspr      Use the system NSPR (found with pkg-config)],
+    _USE_SYSTEM_NSPR=1,
+    _USE_SYSTEM_NSPR=)
+
+if test -n "$_USE_SYSTEM_NSPR" -a -z "$NSPR_CFLAGS" -a -z "$NSPR_LIBS"; then
+    PKG_CHECK_MODULES(NSPR, nspr >= $NSPR_MINVER, ,
+        [AC_MSG_ERROR([--with-system-nspr given but no usable nspr.pc was found])])
+fi
+
 ifdef([CONFIGURING_JS],[
     MOZ_ARG_ENABLE_BOOL(nspr-build,
 [  --enable-nspr-build     Build NSPR from source tree],
