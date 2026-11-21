@@ -253,6 +253,7 @@ if CONFIG['OS_ARCH'] == 'Haiku':
         'translation',
         'media',
         'network',
+        'bnetapi',
         'bsd',
     ]
 
