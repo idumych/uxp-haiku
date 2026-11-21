@@ -11,6 +11,9 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     gl_provider = 'CGL'
 elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'uikit':
     gl_provider = 'EAGL'
+elif CONFIG['OS_ARCH'] == 'Haiku':
+    # Xlibe has no GLX.
+    gl_provider = 'Null'
 elif 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
     if CONFIG['MOZ_EGL_XRENDER_COMPOSITE']:
         gl_provider = 'EGL'
@@ -50,7 +53,11 @@ EXPORTS += [
     'TextureGarbageBin.h',
 ]
 
-if CONFIG['MOZ_X11']:
+if CONFIG['OS_ARCH'] == 'Haiku':
+    UNIFIED_SOURCES += [
+        'GLContextProviderNull.cpp',
+    ]
+elif CONFIG['MOZ_X11']:
     EXPORTS += [
         'GLContextGLX.h',
         'GLContextProviderX11.h',

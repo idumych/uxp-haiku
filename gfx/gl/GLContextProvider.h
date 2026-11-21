@@ -11,7 +11,9 @@
 
 #include "nsSize.h" // for gfx::IntSize (needed by GLContextProviderImpl.h below)
 
-#if defined(MOZ_X11)
+// Haiku: Xlibe has no GLX, so the X11 (EGL+GLX) providers are left out and
+// the Null provider is the default (no GL compositing, no WebGL).
+#if defined(MOZ_X11) && !defined(XP_HAIKU)
 #include "GLContextProviderX11.h"
 #endif
 
@@ -45,7 +47,7 @@ namespace gl {
   #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderCGL
 #endif
 
-#if defined(MOZ_X11)
+#if defined(MOZ_X11) && !defined(XP_HAIKU)
   #define GL_CONTEXT_PROVIDER_NAME GLContextProviderGLX
   #include "GLContextProviderImpl.h"
   #undef GL_CONTEXT_PROVIDER_NAME
@@ -55,7 +57,9 @@ namespace gl {
 #include "GLContextProviderImpl.h"
 #undef GL_CONTEXT_PROVIDER_NAME
 
-#if defined(MOZ_X11)
+#if defined(XP_HAIKU)
+  #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderNull
+#elif defined(MOZ_X11)
   #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderX11
 #elif !defined(GL_CONTEXT_PROVIDER_DEFAULT)
   #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderEGL

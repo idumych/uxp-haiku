@@ -7,6 +7,16 @@ SOURCES += [
     'keysym2ucs.c',
 ]
 
+if CONFIG['OS_ARCH'] == 'Haiku':
+    # Xlibe has no RENDER extension: export libXrender's header and link
+    # no-op stubs that report the extension as absent.
+    EXPORTS.X11.extensions += [
+        'haiku/X11/extensions/Xrender.h',
+    ]
+    SOURCES += [
+        'haiku/XrenderStubs.c',
+    ]
+
 FINAL_LIBRARY = 'xul'
 
 CXXFLAGS += CONFIG['TK_CFLAGS']
