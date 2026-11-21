@@ -12,6 +12,7 @@
 #include "nsBaseWidget.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/UniquePtr.h"
 
 namespace mozilla::widget {
 class HaikuTextInputListener;
@@ -51,8 +52,6 @@ class nsWindow final : public nsBaseWidget {
   NS_IMETHOD Resize(double aX, double aY, double aWidth, double aHeight,
                     bool aRepaint) override;
   void SetSizeMode(nsSizeMode aMode) override;
-  nsresult MakeFullScreen(bool aFullScreen,
-                          nsIScreen* aTargetScreen = nullptr) override;
   NS_IMETHOD Invalidate(const LayoutDeviceIntRect& aRect) override;
   nsresult ConfigureChildren(
       const nsTArray<Configuration>& aConfigurations) override;
@@ -124,7 +123,6 @@ class nsWindow final : public nsBaseWidget {
                           int16_t aButton, int32_t aButtons,
                           int32_t aClickCount, int32_t aModifiers);
   bool RollupIfNeeded(float aX, float aY);
-  void ApplyCursor(BCursorID aCursorID);
 
   HaikuWindow* mWindow;
   HaikuView* mView;
@@ -135,6 +133,7 @@ class nsWindow final : public nsBaseWidget {
   mozilla::Maybe<LayoutDeviceIntRect> mRestoredBounds;
   InputContext mInputContext;
   BRect mSavedFrame;
+  mozilla::UniquePtr<BCursor> mCustomCursor;
 
   bool mVisible;
   bool mEnabled;
