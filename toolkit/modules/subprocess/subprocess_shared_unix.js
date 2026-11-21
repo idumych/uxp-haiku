@@ -8,7 +8,7 @@
 
 const LIBC = OS.Constants.libc;
 
-const LIBC_CHOICES = ["libc.so", "libSystem.B.dylib", "a.out"];
+const LIBC_CHOICES = ["libc.so", "libSystem.B.dylib", "libroot.so", "a.out"];
 
 const unix = {
   pid_t: ctypes.int32_t,
