@@ -46,6 +46,11 @@ elif CONFIG['OS_ARCH'] == 'Linux':
         '/netwerk/system/linux',
     ]
 
+elif CONFIG['OS_ARCH'] == 'Haiku':
+    LOCAL_INCLUDES += [
+        '/netwerk/system/haiku',
+    ]
+
 if CONFIG['NECKO_COOKIES']:
     LOCAL_INCLUDES += [
         '/netwerk/cookie',
