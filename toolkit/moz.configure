@@ -162,7 +162,7 @@ set_define(gl_provider_define, True)
 # ==============================================================
 @depends(toolkit)
 def pdf_printing(toolkit):
-    if toolkit in ('windows', 'gtk2', 'gtk3'):
+    if toolkit in ('windows', 'gtk2', 'gtk3', 'haiku'):
         return True
 
 @depends(pdf_printing)
