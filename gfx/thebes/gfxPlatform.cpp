@@ -42,6 +42,8 @@
 #include "gfxQuartzSurface.h"
 #elif defined(MOZ_WIDGET_GTK)
 #include "gfxPlatformGtk.h"
+#elif defined(MOZ_WIDGET_HAIKU)
+#include "gfxPlatformHaiku.h"
 #elif defined(ANDROID)
 #include "gfxAndroidPlatform.h"
 #endif
@@ -574,6 +576,8 @@ gfxPlatform::Init()
     gPlatform = new gfxPlatformMac;
 #elif defined(MOZ_WIDGET_GTK)
     gPlatform = new gfxPlatformGtk;
+#elif defined(MOZ_WIDGET_HAIKU)
+    gPlatform = new gfxPlatformHaiku;
 #elif defined(ANDROID)
     gPlatform = new gfxAndroidPlatform;
 #else
