@@ -30,9 +30,6 @@ using namespace mozilla::widget;
 
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 
-// The popup rollup listener (one at a time, main thread only).
-static nsIRollupListener* gRollupListener = nullptr;
-static nsWeakPtr gRollupWindow;
 
 // Haiku's menu window feel (kMenuWindowFeel in the app_server).
 static const window_feel kHaikuMenuWindowFeel = window_feel(1025);
@@ -163,16 +160,19 @@ void nsWindow::Destroy() {
 
   nsCOMPtr<nsIWidget> kungFuDeathGrip(this);
 
+  // Tear down the compositor before the BWindow it draws into.
+  if (mLayerManager) {
+    mLayerManager->Destroy();
+  }
+  mLayerManager = nullptr;
+  DestroyCompositor();
+
   if (gRollupListener) {
-    nsCOMPtr<nsIWidget> rollupWidget = do_QueryReferent(gRollupWindow);
-    if (rollupWidget == this) {
-      gRollupListener = nullptr;
-      gRollupWindow = nullptr;
+    nsCOMPtr<nsIWidget> rollupWidget = gRollupListener->GetRollupWidget();
+    if (rollupWidget == static_cast<nsIWidget*>(this)) {
+      gRollupListener->Rollup(0, false, nullptr, nullptr);
     }
   }
-
-  nsBaseWidget::OnDestroy();
-  nsBaseWidget::Destroy();
 
   if (mWindow) {
     mView->DetachGeckoWindow();
@@ -184,7 +184,11 @@ void nsWindow::Destroy() {
     mView = nullptr;
   }
   mBuffer.Destroy();
+
+  nsBaseWidget::OnDestroy();
+  nsBaseWidget::Destroy();
   mParent = nullptr;
+  NotifyWindowDestroyed();
 }
 
 NS_IMETHODIMP nsWindow::Show(bool aState) {
@@ -518,10 +522,8 @@ void nsWindow::CaptureRollupEvents(nsIRollupListener* aListener,
                                    bool aDoCapture) {
   if (aDoCapture) {
     gRollupListener = aListener;
-    gRollupWindow = do_GetWeakReference(static_cast<nsIWidget*>(this));
   } else {
     gRollupListener = nullptr;
-    gRollupWindow = nullptr;
   }
 }
 
