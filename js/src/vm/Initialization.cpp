@@ -12,6 +12,10 @@
 #include "mozilla/FloatingPoint.h"
 
 #include <ctype.h>
+#if defined(XP_HAIKU)
+#include <stdlib.h>
+#include <time.h>
+#endif
 
 #include "jstypes.h"
 
@@ -32,6 +36,13 @@
 #include "wasm/WasmInstance.h"
 
 using JS::detail::InitState;
+
+#if defined(XP_HAIKU)
+namespace js {
+// vm/DateTimeHaiku.cpp
+bool GetHaikuDefaultTimeZoneID(char* buffer, size_t length);
+} // namespace js
+#endif
 using JS::detail::libraryInitState;
 using js::FutexRuntime;
 
@@ -142,6 +153,19 @@ JS::detail::InitWithFailureDiagnostic(bool isDebugBuild)
     MOZ_ALWAYS_TRUE(js::MemoryProtectionExceptionHandler::install());
 
     RETURN_IF_FAIL(js::jit::InitializeIon());
+
+#if defined(XP_HAIKU)
+    // Haiku keeps the system time zone in its locale settings, where neither
+    // libc's localtime() (Date) nor ICU's host detection (Intl) look when TZ
+    // is unset. Export it as TZ so both agree; an explicit TZ still wins.
+    if (!getenv("TZ")) {
+        char tzid[128];
+        if (js::GetHaikuDefaultTimeZoneID(tzid, sizeof(tzid))) {
+            setenv("TZ", tzid, 0);
+            tzset();
+        }
+    }
+#endif
 
     js::DateTimeInfo::init();
 
