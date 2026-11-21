@@ -25,8 +25,6 @@ extern "C" {
 #include "cubeb-internal.h"
 }
 
-static struct cubeb_ops const haiku_ops;
-
 struct cubeb {
   struct cubeb_ops const * ops;
 };
@@ -49,18 +47,6 @@ struct cubeb_stream {
 
 extern "C" int haiku_init(cubeb ** context, char const * context_name);
 
-int
-haiku_init(cubeb ** context, char const * context_name)
-{
-  (void) context_name;
-  cubeb * ctx = (cubeb *) calloc(1, sizeof(cubeb));
-  if (!ctx) {
-    return CUBEB_ERROR;
-  }
-  ctx->ops = &haiku_ops;
-  *context = ctx;
-  return CUBEB_OK;
-}
 
 static char const *
 haiku_get_backend_id(cubeb * context)
@@ -297,7 +283,7 @@ haiku_stream_set_volume(cubeb_stream * stm, float volume)
 }
 
 static struct cubeb_ops const haiku_ops = {
-  /*.init =*/ haiku_init,
+  /*.init =*/ NULL,
   /*.get_backend_id =*/ haiku_get_backend_id,
   /*.get_max_channel_count =*/ haiku_get_max_channel_count,
   /*.get_min_latency =*/ haiku_get_min_latency,
@@ -317,3 +303,16 @@ static struct cubeb_ops const haiku_ops = {
   /*.stream_register_device_changed_callback =*/ NULL,
   /*.register_device_collection_changed =*/ NULL
 };
+
+int
+haiku_init(cubeb ** context, char const * context_name)
+{
+  (void) context_name;
+  cubeb * ctx = (cubeb *) calloc(1, sizeof(cubeb));
+  if (!ctx) {
+    return CUBEB_ERROR;
+  }
+  ctx->ops = &haiku_ops;
+  *context = ctx;
+  return CUBEB_OK;
+}
