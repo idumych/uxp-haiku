@@ -340,6 +340,48 @@ VsizeMaxContiguousDistinguishedAmount(int64_t* aN)
 }
 #endif // FreeBSD
 
+#elif defined(XP_HAIKU)
+
+#include <OS.h>
+
+static void
+HaikuAreaIter(int64_t& aVsize, int64_t& aResident)
+{
+  aVsize = 0;
+  aResident = 0;
+  ssize_t cookie = 0;
+  area_info info;
+  while (get_next_area_info(B_CURRENT_TEAM, &cookie, &info) == B_OK) {
+    aVsize += info.size;
+    aResident += info.ram_size;
+  }
+}
+
+#define HAVE_VSIZE_AND_RESIDENT_REPORTERS 1
+[[nodiscard]] static nsresult
+VsizeDistinguishedAmount(int64_t* aN)
+{
+  int64_t vsize, resident;
+  HaikuAreaIter(vsize, resident);
+  *aN = vsize;
+  return NS_OK;
+}
+
+[[nodiscard]] static nsresult
+ResidentDistinguishedAmount(int64_t* aN)
+{
+  int64_t vsize, resident;
+  HaikuAreaIter(vsize, resident);
+  *aN = resident;
+  return NS_OK;
+}
+
+[[nodiscard]] static nsresult
+ResidentFastDistinguishedAmount(int64_t* aN)
+{
+  return ResidentDistinguishedAmount(aN);
+}
+
 #elif defined(XP_SOLARIS)
 
 #include <procfs.h>

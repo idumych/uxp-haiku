@@ -26,6 +26,9 @@
 #include <stdlib.h>
 #include <sys/param.h>
 #endif
+#if defined(XP_HAIKU)
+#include <FindDirectory.h>
+#endif
 
 
 // WARNING: These hard coded names need to go away. They need to
@@ -311,6 +314,17 @@ nsAppFileLocationProvider::GetProductDirectory(nsIFile** aLocalFile,
   }
   const char* prop = aLocal ? NS_WIN_LOCAL_APPDATA_DIR : NS_WIN_APPDATA_DIR;
   rv = directoryService->Get(prop, NS_GET_IID(nsIFile), getter_AddRefs(localDir));
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+#elif defined(XP_HAIKU)
+  char settingsPath[MAXPATHLEN];
+  if (find_directory(B_USER_SETTINGS_DIRECTORY, -1, true, settingsPath,
+                     sizeof(settingsPath)) != B_OK) {
+    return NS_ERROR_FAILURE;
+  }
+  rv = NS_NewNativeLocalFile(nsDependentCString(settingsPath), true,
+                             getter_AddRefs(localDir));
   if (NS_FAILED(rv)) {
     return rv;
   }

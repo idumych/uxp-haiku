@@ -32,7 +32,7 @@ if CONFIG['OS_ARCH'] == 'GNU':
             'xptcstubs_gcc_x86_unix.cpp'
         ]
 
-if CONFIG['OS_ARCH'] in ('Linux', 'DragonFly', 'FreeBSD', 'NetBSD', 'OpenBSD', 'SunOS') or \
+if CONFIG['OS_ARCH'] in ('Linux', 'DragonFly', 'FreeBSD', 'Haiku', 'NetBSD', 'OpenBSD', 'SunOS') or \
    CONFIG['OS_ARCH'].startswith('GNU_'):
     if CONFIG['OS_TEST'] == 'x86_64':
         SOURCES += [

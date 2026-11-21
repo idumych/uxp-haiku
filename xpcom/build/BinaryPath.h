@@ -11,6 +11,10 @@
 #include <windows.h>
 #elif defined(XP_MACOSX)
 #include <CoreFoundation/CoreFoundation.h>
+#elif defined(XP_HAIKU)
+#include <OS.h>
+#include <image.h>
+#include <string.h>
 #elif defined(XP_UNIX)
 #include <sys/stat.h>
 #include <string.h>
@@ -81,6 +85,20 @@ private:
 
     CFRelease(executableURL);
     return rv;
+  }
+
+#elif defined(XP_HAIKU)
+  static nsresult Get(const char* aArgv0, char aResult[MAXPATHLEN])
+  {
+    image_info info;
+    int32 cookie = 0;
+    while (get_next_image_info(B_CURRENT_TEAM, &cookie, &info) == B_OK) {
+      if (info.type == B_APP_IMAGE) {
+        strlcpy(aResult, info.name, MAXPATHLEN);
+        return NS_OK;
+      }
+    }
+    return NS_ERROR_FAILURE;
   }
 
 #elif defined(XP_UNIX)
