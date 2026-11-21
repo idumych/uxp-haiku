@@ -1934,8 +1934,6 @@ MOZ_ARG_WITH_BOOL(system-nss,
 if test -n "$_USE_SYSTEM_NSS"; then
     PKG_CHECK_MODULES(NSS, nss >= 3.90, [MOZ_SYSTEM_NSS=1],
         [AC_MSG_ERROR([--with-system-nss given but no usable nss.pc was found])])
-    dnl crmf is only shipped as a static library; it lives next to libnss3.
-    NSS_LIBS="$NSS_LIBS -lcrmf"
 else
     # TODO: We need to find a better place to define this include
     dnl NSS_CFLAGS/NSS_LIBS are AC_SUBST_LIST'ed by PKG_CHECK_MODULES above.
