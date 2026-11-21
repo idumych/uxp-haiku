@@ -247,6 +247,14 @@ if CONFIG['OS_ARCH'] == 'SunOS':
         'sendfile',
     ]
 
+if CONFIG['OS_ARCH'] == 'Haiku':
+    OS_LIBS += [
+        'be',
+        'media',
+        'network',
+        'bsd',
+    ]
+
 if CONFIG['OS_ARCH'] == 'WINNT':
     OS_LIBS += [
         'shell32',

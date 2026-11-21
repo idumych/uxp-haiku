@@ -57,6 +57,9 @@ int kai_init(cubeb ** context, char const * context_name);
 #if defined(USE_SUN)
 int sunaudio_init(cubeb ** context, char const * context_name);
 #endif
+#if defined(USE_HAIKU)
+int haiku_init(cubeb ** context, char const * context_name);
+#endif
 
 
 static int
@@ -146,6 +149,9 @@ cubeb_init(cubeb ** context, char const * context_name)
 #endif
 #if defined(USE_SUN)
     sunaudio_init,
+#endif
+#if defined(USE_HAIKU)
+    haiku_init,
 #endif
   };
   int i;
