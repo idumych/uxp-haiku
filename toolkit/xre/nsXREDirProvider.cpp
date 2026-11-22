@@ -41,6 +41,7 @@
 #include "mozilla/Services.h"
 #include "mozilla/Omnijar.h"
 #include "mozilla/Preferences.h"
+#include "GeckoProfiler.h"
 
 #include <stdlib.h>
 

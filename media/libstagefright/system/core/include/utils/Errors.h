@@ -18,7 +18,15 @@
 #define ANDROID_ERRORS_H
 
 #include <sys/types.h>
+#include <stdint.h>
 #include <errno.h>
+
+// Haiku's errno values are already negative (and -ENOMEM would overflow).
+#ifdef __HAIKU__
+#define STAGEFRIGHT_NEG_ERRNO(e) (e)
+#else
+#define STAGEFRIGHT_NEG_ERRNO(e) (-(e))
+#endif
 
 namespace stagefright {
 
@@ -48,25 +56,25 @@ enum {
     
     UNKNOWN_ERROR       = 0x80000000,
 
-    NO_MEMORY           = -ENOMEM,
-    INVALID_OPERATION   = -ENOSYS,
-    BAD_VALUE           = -EINVAL,
+    NO_MEMORY           = STAGEFRIGHT_NEG_ERRNO(ENOMEM),
+    INVALID_OPERATION   = STAGEFRIGHT_NEG_ERRNO(ENOSYS),
+    BAD_VALUE           = STAGEFRIGHT_NEG_ERRNO(EINVAL),
     BAD_TYPE            = 0x80000001,
-    NAME_NOT_FOUND      = -ENOENT,
-    PERMISSION_DENIED   = -EPERM,
-    NO_INIT             = -ENODEV,
-    ALREADY_EXISTS      = -EEXIST,
-    DEAD_OBJECT         = -EPIPE,
+    NAME_NOT_FOUND      = STAGEFRIGHT_NEG_ERRNO(ENOENT),
+    PERMISSION_DENIED   = STAGEFRIGHT_NEG_ERRNO(EPERM),
+    NO_INIT             = STAGEFRIGHT_NEG_ERRNO(ENODEV),
+    ALREADY_EXISTS      = STAGEFRIGHT_NEG_ERRNO(EEXIST),
+    DEAD_OBJECT         = STAGEFRIGHT_NEG_ERRNO(EPIPE),
     FAILED_TRANSACTION  = 0x80000002,
-    JPARKS_BROKE_IT     = -EPIPE,
+    JPARKS_BROKE_IT     = STAGEFRIGHT_NEG_ERRNO(EPIPE),
 #if !defined(HAVE_MS_C_RUNTIME)
-    BAD_INDEX           = -EOVERFLOW,
-    NOT_ENOUGH_DATA     = -ENODATA,
-    WOULD_BLOCK         = -EWOULDBLOCK, 
-    TIMED_OUT           = -ETIMEDOUT,
-    UNKNOWN_TRANSACTION = -EBADMSG,
+    BAD_INDEX           = STAGEFRIGHT_NEG_ERRNO(EOVERFLOW),
+    NOT_ENOUGH_DATA     = STAGEFRIGHT_NEG_ERRNO(ENODATA),
+    WOULD_BLOCK         = STAGEFRIGHT_NEG_ERRNO(EWOULDBLOCK), 
+    TIMED_OUT           = STAGEFRIGHT_NEG_ERRNO(ETIMEDOUT),
+    UNKNOWN_TRANSACTION = STAGEFRIGHT_NEG_ERRNO(EBADMSG),
 #else    
-    BAD_INDEX           = -E2BIG,
+    BAD_INDEX           = STAGEFRIGHT_NEG_ERRNO(E2BIG),
     NOT_ENOUGH_DATA     = 0x80000003,
     WOULD_BLOCK         = 0x80000004,
     TIMED_OUT           = 0x80000005,
