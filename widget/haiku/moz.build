@@ -31,6 +31,11 @@ SOURCES += [
     'nsWindow.cpp',
 ]
 
+if CONFIG['NS_PRINTING']:
+    SOURCES += [
+        'nsDeviceContextSpecHaiku.cpp',
+    ]
+
 include('/ipc/chromium/chromium-config.mozbuild')
 
 FINAL_LIBRARY = 'xul'
