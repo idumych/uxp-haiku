@@ -16,6 +16,7 @@
 #include "nsHTMLFormatConverter.h"
 #include "nsIdleServiceHaiku.h"
 #include "nsLookAndFeel.h"
+#include "nsNativeThemeHaiku.h"
 #include "nsScreenHaiku.h"
 #include "nsSound.h"
 #include "nsTransferable.h"
@@ -36,6 +37,7 @@ NS_GENERIC_FACTORY_CONSTRUCTOR(nsDragService)
 NS_GENERIC_FACTORY_CONSTRUCTOR(nsFilePicker)
 NS_GENERIC_FACTORY_CONSTRUCTOR(nsSound)
 NS_GENERIC_FACTORY_CONSTRUCTOR(nsScreenManagerHaiku)
+NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeThemeHaiku)
 NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsIdleServiceHaiku,
                                          nsIdleServiceHaiku::GetInstance)
 
@@ -59,6 +61,7 @@ NS_DEFINE_NAMED_CID(NS_BIDIKEYBOARD_CID);
 NS_DEFINE_NAMED_CID(NS_SCREENMANAGER_CID);
 NS_DEFINE_NAMED_CID(NS_IDLE_SERVICE_CID);
 NS_DEFINE_NAMED_CID(NS_GFXINFO_CID);
+NS_DEFINE_NAMED_CID(NS_THEMERENDERER_CID);
 
 static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
     {&kNS_WINDOW_CID, false, nullptr, nsWindowConstructor},
@@ -83,6 +86,7 @@ static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
      Module::MAIN_PROCESS_ONLY},
     {&kNS_IDLE_SERVICE_CID, false, nullptr, nsIdleServiceHaikuConstructor},
     {&kNS_GFXINFO_CID, false, nullptr, mozilla::widget::GfxInfoConstructor},
+    {&kNS_THEMERENDERER_CID, false, nullptr, nsNativeThemeHaikuConstructor},
     {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kWidgetContracts[] = {
@@ -107,11 +111,13 @@ static const mozilla::Module::ContractIDEntry kWidgetContracts[] = {
      Module::MAIN_PROCESS_ONLY},
     {"@mozilla.org/widget/idleservice;1", &kNS_IDLE_SERVICE_CID},
     {"@mozilla.org/gfx/info;1", &kNS_GFXINFO_CID},
+    {"@mozilla.org/chrome/chrome-native-theme;1", &kNS_THEMERENDERER_CID},
     {nullptr}};
 
 static void nsWidgetHaikuModuleDtor() {
   WidgetUtils::Shutdown();
   nsLookAndFeel::Shutdown();
+  nsNativeThemeHaiku::Shutdown();
   nsAppShellShutdown();
   HaikuApplication::Shutdown();
 }
