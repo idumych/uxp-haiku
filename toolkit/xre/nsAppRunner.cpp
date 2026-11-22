@@ -159,6 +159,9 @@
 #endif
 
 // for X remote support
+#if defined(MOZ_WIDGET_HAIKU)
+#include "mozilla/widget/HaikuRemote.h"
+#endif
 #ifdef MOZ_ENABLE_XREMOTE
 #include "XRemoteClient.h"
 #include "nsIRemoteService.h"
@@ -3296,6 +3299,14 @@ XREMain::XRE_mainStartup(bool* aExitFlag)
     } else if (rr == REMOTE_ARG_BAD) {
       return 1;
     }
+  }
+#endif
+#if defined(MOZ_WIDGET_HAIKU)
+  // Single launch: if Basilisk already runs (with this profile), give it our
+  // command line and quit before touching the locked profile.
+  if (mozilla::widget::HaikuForwardToRunningInstance(gArgc, gArgv)) {
+    *aExitFlag = true;
+    return 0;
   }
 #endif
 #if defined(MOZ_WIDGET_GTK)

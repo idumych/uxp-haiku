@@ -4,8 +4,14 @@
 
 #include "HaikuApplication.h"
 #include "nsAppShell.h"
+#include "HaikuRemote.h"
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <mutex>
+#include <strings.h>
+#include <unistd.h>
 #include <utility>
 
 #include "nsString.h"
@@ -17,8 +23,90 @@ namespace mozilla::widget {
 HaikuApplication* HaikuApplication::sInstance = nullptr;
 sem_id HaikuApplication::sGeckoTerminatedSem = B_BAD_SEM_ID;
 
-static const char* kAppSignature = "application/x-vnd.Basilisk";
+// Must match app_signature in basilisk/app/haiku/Basilisk.rdef.in.
+static const char kAppSignature[] = "application/x-vnd.Basilisk";
+// This instance's signature (see HaikuForwardToRunningInstance).
+static char sSignature[B_MIME_TYPE_LENGTH] = "application/x-vnd.Basilisk";
 static sem_id sInitSem = B_BAD_SEM_ID;
+// Set once ReadyToRun has run; argv messages before that are our own.
+static bool sReady = false;
+
+static const char* ProfileArg(int aArgc, char** aArgv) {
+  for (int i = 1; i < aArgc - 1; ++i) {
+    const char* arg = aArgv[i];
+    while (*arg == '-') {
+      ++arg;
+    }
+    if (!strcmp(arg, "P") || !strcasecmp(arg, "profile")) {
+      return aArgv[i + 1];
+    }
+  }
+  return nullptr;
+}
+
+static bool HasArg(int aArgc, char** aArgv, const char* aName) {
+  for (int i = 1; i < aArgc; ++i) {
+    const char* arg = aArgv[i];
+    while (*arg == '-') {
+      ++arg;
+    }
+    if (!strcasecmp(arg, aName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool HaikuForwardToRunningInstance(int aArgc, char** aArgv) {
+  const char* profile = ProfileArg(aArgc, aArgv);
+  const char* noRemote = getenv("MOZ_NO_REMOTE");
+  const char* newInstance = getenv("MOZ_NEW_INSTANCE");
+  bool separate = (noRemote && *noRemote) || (newInstance && *newInstance) ||
+                  HasArg(aArgc, aArgv, "no-remote") ||
+                  HasArg(aArgc, aArgv, "new-instance");
+
+  if (profile) {
+    // One instance per profile: hash the profile name/path.
+    uint32_t hash = 5381;
+    for (const char* c = profile; *c; ++c) {
+      hash = hash * 33 + uint8_t(*c);
+    }
+    snprintf(sSignature, sizeof(sSignature), "%s-%08x", kAppSignature, hash);
+  } else if (separate) {
+    // Never shares: a signature nobody else uses.
+    snprintf(sSignature, sizeof(sSignature), "%s-%d", kAppSignature,
+             int(getpid()));
+    return false;
+  } else if (HasArg(aArgc, aArgv, "ProfileManager")) {
+    return false;
+  }
+
+  if (separate && profile) {
+    // -no-remote -P name: still don't hand off to another instance.
+    return false;
+  }
+
+  team_id team = be_roster->TeamFor(sSignature);
+  if (team < B_OK || team == team_id(getpid())) {
+    return false;
+  }
+
+  BMessage msg(B_ARGV_RECEIVED);
+  msg.AddInt32("argc", aArgc);
+  for (int i = 0; i < aArgc; ++i) {
+    msg.AddString("argv", aArgv[i]);
+  }
+  char cwd[B_PATH_NAME_LENGTH];
+  if (getcwd(cwd, sizeof(cwd))) {
+    msg.AddString("cwd", cwd);
+  }
+  BMessenger target(sSignature, team);
+  if (target.SendMessage(&msg, (BHandler*)nullptr, 5000000) != B_OK) {
+    return false;  // couldn't reach it: start normally
+  }
+  be_roster->ActivateApp(team);
+  return true;
+}
 
 // Starts the BApplication thread once and waits until it is running
 // (ReadyToRun), so be_app, be_plain_font, be_control_look and ui_color() are
@@ -63,7 +151,7 @@ void HaikuApplication::NotifyGeckoExited() {
 }
 
 int32 HaikuApplication::AppThreadFunc(void*) {
-  auto* app = new HaikuApplication(kAppSignature);
+  auto* app = new HaikuApplication(sSignature);
   sInstance = app;
   app->mThread = find_thread(nullptr);
   app->Run();
@@ -78,6 +166,7 @@ HaikuApplication::HaikuApplication(const char* aSignature)
 HaikuApplication::~HaikuApplication() = default;
 
 void HaikuApplication::ReadyToRun() {
+  sReady = true;
   if (sInitSem >= B_OK) {
     release_sem(sInitSem);
   }
@@ -127,13 +216,10 @@ void HaikuApplication::RefsReceived(BMessage* aMessage) {
 }
 
 void HaikuApplication::ArgvReceived(int32 aArgc, char** aArgv) {
-  // The first ArgvReceived is our own command line, which XRE handles.
-  static bool sInitialArgvHandled = false;
-  if (!sInitialArgvHandled) {
-    sInitialArgvHandled = true;
-    return;
-  }
-  if (aArgc <= 1 || !aArgv) {
+  // Before ReadyToRun this is our own command line, which XRE handles.
+  // Afterwards it comes from another launch (HaikuForwardToRunningInstance
+  // or BRoster::Launch by another app): open it here.
+  if (!sReady || aArgc <= 1 || !aArgv) {
     return;
   }
 
