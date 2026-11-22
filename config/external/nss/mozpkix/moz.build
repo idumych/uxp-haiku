@@ -21,6 +21,7 @@ EXPORTS.mozpkix += [_pkix + '/include/pkix/' + h for h in [
     'Result.h',
     'Time.h',
 ]]
+EXPORTS.mozpkix += ['/security/nss/cpputil/nss_scoped_ptrs.h']
 
 SOURCES += [_pkix + '/lib/' + f for f in [
     'pkixbuild.cpp',
