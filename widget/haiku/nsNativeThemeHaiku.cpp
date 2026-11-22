@@ -6,6 +6,7 @@
 #include "nsNativeThemeHaiku.h"
 
 #include <algorithm>
+#include <math.h>
 #include <vector>
 
 #include "gfxContext.h"
@@ -14,16 +15,19 @@
 #include "nsAttrValueInlines.h"
 #include "nsDeviceContext.h"
 #include "nsGkAtoms.h"
+#include "nsContainerFrame.h"
 #include "nsIContent.h"
 #include "nsIFrame.h"
 #include "nsNameSpaceManager.h"
 #include "nsPresContext.h"
 #include "nsRenderingContext.h"
 #include "nsThemeConstants.h"
+#include "mozilla/TimeStamp.h"
 
 #include <interface/Bitmap.h>
 #include <interface/ControlLook.h>
 #include <interface/InterfaceDefs.h>
+#include <interface/Region.h>
 #include <interface/ScrollBar.h>
 #include <interface/View.h>
 
@@ -193,6 +197,26 @@ bool IsFrameContentNodeInNamespace(nsIFrame* aFrame, uint32_t aNamespace) {
   return content && content->IsInNamespace(aNamespace);
 }
 
+// Position of the range thumb's centre as a fraction of the range frame,
+// so the slider bar fill ends under the thumb (works for RTL too).
+double RangeThumbFraction(nsIFrame* aRangeFrame, bool aHorizontal) {
+  for (nsIFrame* child : aRangeFrame->PrincipalChildList()) {
+    if (child->StyleDisplay()->mAppearance != NS_THEME_RANGE_THUMB) {
+      continue;
+    }
+    nsRect thumb = child->GetRect();
+    nsSize size = aRangeFrame->GetSize();
+    double length = aHorizontal ? size.width : size.height;
+    if (length <= 0) {
+      return 0.0;
+    }
+    double center = aHorizontal ? thumb.x + thumb.width / 2.0
+                                : thumb.y + thumb.height / 2.0;
+    return std::min(1.0, std::max(0.0, center / length));
+  }
+  return 0.0;
+}
+
 int32_t ScrollbarWidth(uint8_t aWidgetType) {
   float width = be_control_look->GetScrollBarWidth(
       IsHorizontalScrollbarPart(aWidgetType) ? B_HORIZONTAL : B_VERTICAL);
@@ -212,6 +236,11 @@ nsNativeThemeHaiku::~nsNativeThemeHaiku() {}
 uint32_t nsNativeThemeHaiku::GetControlLookFlags(nsIFrame* aFrame,
                                                  uint8_t aWidgetType) {
   uint32_t flags = 0;
+  if (aWidgetType == NS_THEME_RANGE_THUMB && aFrame->GetParent()) {
+    // The thumb is anonymous content; the <input> carries the state.
+    aFrame = aFrame->GetParent();
+    aWidgetType = NS_THEME_RANGE;
+  }
   EventStates state = GetContentState(aFrame, aWidgetType);
 
   if (IsDisabled(aFrame, state) ||
@@ -258,6 +287,14 @@ uint32_t nsNativeThemeHaiku::GetControlLookFlags(nsIFrame* aFrame,
       break;
     case NS_THEME_MENULIST:
       if (IsOpenButton(aFrame)) {
+        flags |= BControlLook::B_ACTIVATED;
+      }
+      break;
+    case NS_THEME_MENUITEM:
+    case NS_THEME_CHECKMENUITEM:
+    case NS_THEME_RADIOMENUITEM:
+      flags &= ~(BControlLook::B_HOVER | BControlLook::B_ACTIVATED);
+      if (CheckBooleanAttr(aFrame, nsGkAtoms::menuactive)) {
         flags |= BControlLook::B_ACTIVATED;
       }
       break;
@@ -318,15 +355,33 @@ nsNativeThemeHaiku::DrawWidgetBackground(nsRenderingContext* aContext,
       IsHorizontalScrollbarPart(aWidgetType) ? B_HORIZONTAL : B_VERTICAL;
 
   double progress = 0.0;
+  // For indeterminate progress bars: start of the moving segment, 0..1.
+  double indeterminatePhase = -1.0;
   if (aWidgetType == NS_THEME_PROGRESSBAR) {
     EventStates state = GetContentState(aFrame, aWidgetType);
     double maxValue = GetProgressMaxValue(aFrame);
     if (IsIndeterminateProgress(aFrame, state)) {
-      progress = 1.0;
+      static const TimeStamp sStart = TimeStamp::Now();
+      double ms = (TimeStamp::Now() - sStart).ToMilliseconds();
+      double t = fmod(ms, 2000.0) / 1000.0;  // 0..2, bounce back and forth
+      indeterminatePhase = t <= 1.0 ? t : 2.0 - t;
+      QueueAnimatedContentForRefresh(aFrame->GetContent(), 30);
     } else if (maxValue > 0) {
       progress = std::min(1.0, std::max(0.0, GetProgressValue(aFrame) / maxValue));
     }
   }
+  const bool rangeHorizontal =
+      (aWidgetType == NS_THEME_RANGE || aWidgetType == NS_THEME_RANGE_THUMB)
+          ? IsRangeHorizontal(aWidgetType == NS_THEME_RANGE_THUMB &&
+                                      aFrame->GetParent()
+                                  ? aFrame->GetParent()
+                                  : aFrame)
+          : true;
+  const double rangeFraction =
+      aWidgetType == NS_THEME_RANGE ? RangeThumbFraction(aFrame, rangeHorizontal)
+                                    : 0.0;
+  const bool splitterHorizontal =
+      aWidgetType == NS_THEME_SPLITTER && IsHorizontal(aFrame);
   const bool bottomTab = aWidgetType == NS_THEME_TAB && IsBottomTab(aFrame);
   const bool selectedTab = aWidgetType == NS_THEME_TAB && IsSelectedTab(aFrame);
   scroll_bar_info scrollInfo;
@@ -380,9 +435,28 @@ nsNativeThemeHaiku::DrawWidgetBackground(nsRenderingContext* aContext,
         break;
 
       case NS_THEME_PROGRESSBAR:
-        be_control_look->DrawStatusBar(
-            aView, r, aBounds, base, ui_color(B_STATUS_BAR_COLOR),
-            aBounds.left + (aBounds.Width() + 1) * progress);
+        if (indeterminatePhase < 0) {
+          be_control_look->DrawStatusBar(
+              aView, r, aBounds, base, ui_color(B_STATUS_BAR_COLOR),
+              aBounds.left + (aBounds.Width() + 1) * progress);
+        } else {
+          // Empty bar, then a full bar clipped to a moving segment.
+          be_control_look->DrawStatusBar(aView, r, aBounds, base,
+                                         ui_color(B_STATUS_BAR_COLOR),
+                                         aBounds.left);
+          float segment = std::max(8.0f, (aBounds.Width() + 1) * 0.3f);
+          float left = aBounds.left +
+                       (aBounds.Width() + 1 - segment) * indeterminatePhase;
+          BRegion clip(BRect(left, aBounds.top, left + segment - 1,
+                             aBounds.bottom));
+          BRect full = aBounds;
+          aView->PushState();
+          aView->ConstrainClippingRegion(&clip);
+          be_control_look->DrawStatusBar(aView, full, aBounds, base,
+                                         ui_color(B_STATUS_BAR_COLOR),
+                                         aBounds.right + 1);
+          aView->PopState();
+        }
         break;
 
       case NS_THEME_PROGRESSCHUNK:
@@ -451,6 +525,88 @@ nsNativeThemeHaiku::DrawWidgetBackground(nsRenderingContext* aContext,
       case NS_THEME_STATUSBAR:
         aView->SetHighColor(base);
         aView->FillRect(r);
+        break;
+
+      case NS_THEME_RANGE: {
+        // A slider bar about 6px thick, centred in the frame.
+        BRect bar = aBounds;
+        if (rangeHorizontal) {
+          float mid = floorf((aBounds.top + aBounds.bottom) / 2);
+          bar.top = mid - 2;
+          bar.bottom = mid + 3;
+        } else {
+          float mid = floorf((aBounds.left + aBounds.right) / 2);
+          bar.left = mid - 2;
+          bar.right = mid + 3;
+        }
+        rgb_color fill = ui_color(B_CONTROL_HIGHLIGHT_COLOR);
+        rgb_color empty = be_control_look->SliderBarColor(base);
+        be_control_look->DrawSliderBar(aView, bar, aBounds, base,
+                                       rangeHorizontal ? fill : empty,
+                                       rangeHorizontal ? empty : fill,
+                                       rangeHorizontal ? rangeFraction
+                                                       : 1.0 - rangeFraction,
+                                       flags,
+                                       rangeHorizontal ? B_HORIZONTAL
+                                                       : B_VERTICAL);
+        break;
+      }
+
+      case NS_THEME_RANGE_THUMB:
+        be_control_look->DrawSliderThumb(
+            aView, r, aBounds, base, flags,
+            rangeHorizontal ? B_HORIZONTAL : B_VERTICAL);
+        break;
+
+      case NS_THEME_MENUBAR:
+        be_control_look->DrawMenuBarBackground(
+            aView, r, aBounds, ui_color(B_MENU_BACKGROUND_COLOR), flags);
+        break;
+
+      case NS_THEME_MENUPOPUP:
+        be_control_look->DrawMenuBackground(
+            aView, r, aBounds, ui_color(B_MENU_BACKGROUND_COLOR), flags);
+        break;
+
+      case NS_THEME_MENUITEM:
+      case NS_THEME_CHECKMENUITEM:
+      case NS_THEME_RADIOMENUITEM:
+        if (flags & BControlLook::B_ACTIVATED) {
+          be_control_look->DrawMenuItemBackground(
+              aView, r, aBounds, ui_color(B_MENU_SELECTED_BACKGROUND_COLOR),
+              flags);
+        }
+        break;
+
+      case NS_THEME_MENUSEPARATOR: {
+        // Like BSeparatorItem: a dark line over a light one.
+        rgb_color menu = ui_color(B_MENU_BACKGROUND_COLOR);
+        float y = floorf((aBounds.top + aBounds.bottom) / 2);
+        aView->SetHighColor(tint_color(menu, B_DARKEN_1_TINT));
+        aView->StrokeLine(BPoint(aBounds.left + 1, y),
+                          BPoint(aBounds.right - 1, y));
+        aView->SetHighColor(tint_color(menu, B_LIGHTEN_2_TINT));
+        aView->StrokeLine(BPoint(aBounds.left + 1, y + 1),
+                          BPoint(aBounds.right - 1, y + 1));
+        break;
+      }
+
+      case NS_THEME_MENUARROW:
+        be_control_look->DrawArrowShape(aView, r, aBounds,
+                                        ui_color(B_MENU_BACKGROUND_COLOR),
+                                        BControlLook::B_RIGHT_ARROW, flags);
+        break;
+
+      case NS_THEME_SPLITTER:
+        be_control_look->DrawSplitter(aView, r, aBounds, base,
+                                      splitterHorizontal ? B_HORIZONTAL
+                                                         : B_VERTICAL,
+                                      flags);
+        break;
+
+      case NS_THEME_FOCUS_OUTLINE:
+        aView->SetHighColor(ui_color(B_KEYBOARD_NAVIGATION_COLOR));
+        aView->StrokeRect(aBounds);
         break;
     }
   };
@@ -609,6 +765,36 @@ nsNativeThemeHaiku::GetMinimumWidgetSize(nsPresContext* aPresContext,
     case NS_THEME_MENULIST_BUTTON:
       aResult->width = kMenuListArrowWidth;
       break;
+
+    case NS_THEME_RANGE:
+      aResult->width = aResult->height = 16;
+      break;
+
+    case NS_THEME_RANGE_THUMB: {
+      // BSlider's default block thumb.
+      nsIFrame* range = aFrame ? aFrame->GetParent() : nullptr;
+      bool horizontal = !range || IsRangeHorizontal(range);
+      aResult->width = horizontal ? 11 : 15;
+      aResult->height = horizontal ? 15 : 11;
+      *aIsOverridable = false;
+      break;
+    }
+
+    case NS_THEME_MENUSEPARATOR:
+      aResult->height = 6;
+      break;
+
+    case NS_THEME_MENUARROW:
+      aResult->width = aResult->height = 10;
+      break;
+
+    case NS_THEME_SPLITTER:
+      if (aFrame && IsHorizontal(aFrame)) {
+        aResult->width = 6;
+      } else {
+        aResult->height = 6;
+      }
+      break;
   }
   return NS_OK;
 }
@@ -622,7 +808,10 @@ nsNativeThemeHaiku::WidgetStateChanged(nsIFrame* aFrame, uint8_t aWidgetType,
   if (aWidgetType == NS_THEME_TOOLBOX || aWidgetType == NS_THEME_TOOLBAR ||
       aWidgetType == NS_THEME_STATUSBAR ||
       aWidgetType == NS_THEME_PROGRESSCHUNK ||
-      aWidgetType == NS_THEME_TABPANELS) {
+      aWidgetType == NS_THEME_TABPANELS ||
+      aWidgetType == NS_THEME_MENUBAR ||
+      aWidgetType == NS_THEME_MENUPOPUP ||
+      aWidgetType == NS_THEME_MENUSEPARATOR) {
     *aShouldRepaint = false;
     return NS_OK;
   }
@@ -725,7 +914,20 @@ nsNativeThemeHaiku::ThemeSupportsWidget(nsPresContext* aPresContext,
     case NS_THEME_TOOLBOX:
     case NS_THEME_TOOLBAR:
     case NS_THEME_STATUSBAR:
+    case NS_THEME_RANGE:
+    case NS_THEME_RANGE_THUMB:
+    case NS_THEME_MENUBAR:
+    case NS_THEME_MENUPOPUP:
+    case NS_THEME_MENUITEM:
+    case NS_THEME_CHECKMENUITEM:
+    case NS_THEME_RADIOMENUITEM:
+    case NS_THEME_MENUSEPARATOR:
+    case NS_THEME_MENUARROW:
+    case NS_THEME_SPLITTER:
       return !IsWidgetStyled(aPresContext, aFrame, aWidgetType);
+
+    case NS_THEME_FOCUS_OUTLINE:
+      return true;
 
     case NS_THEME_SCROLLBAR_HORIZONTAL:
     case NS_THEME_SCROLLBAR_VERTICAL:
@@ -749,6 +951,8 @@ nsNativeThemeHaiku::WidgetIsContainer(uint8_t aWidgetType) {
     case NS_THEME_RADIO:
     case NS_THEME_CHECKBOX:
     case NS_THEME_PROGRESSCHUNK:
+    case NS_THEME_RANGE_THUMB:
+    case NS_THEME_MENUARROW:
     case NS_THEME_SCROLLBARBUTTON_UP:
     case NS_THEME_SCROLLBARBUTTON_DOWN:
     case NS_THEME_SCROLLBARBUTTON_LEFT:
@@ -767,6 +971,8 @@ nsNativeThemeHaiku::ThemeDrawsFocusForWidget(uint8_t aWidgetType) {
     case NS_THEME_TEXTFIELD_MULTILINE:
     case NS_THEME_SEARCHFIELD:
     case NS_THEME_NUMBER_INPUT:
+    case NS_THEME_CHECKBOX:
+    case NS_THEME_RADIO:
       return true;
   }
   return false;
@@ -782,6 +988,8 @@ nsITheme::Transparency nsNativeThemeHaiku::GetWidgetTransparency(
     case NS_THEME_STATUSBAR:
     case NS_THEME_SCROLLBAR_HORIZONTAL:
     case NS_THEME_SCROLLBAR_VERTICAL:
+    case NS_THEME_MENUBAR:
+    case NS_THEME_MENUPOPUP:
       return eOpaque;
   }
   return eUnknownTransparency;
