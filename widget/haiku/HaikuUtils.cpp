@@ -21,6 +21,9 @@ void EnsureHaikuApplication() {
   HaikuApplication::EnsureInitialized();
 }
 
+// Haiku scales its UI from the plain font size: 12 pt is 1x. Round to a
+// quarter so pixels stay crisp. layout.css.devPixelsPerPx still overrides
+// this (nsBaseWidget::GetDefaultScale checks it first).
 double GetHaikuSystemScale() {
   const char* forceScale = getenv("MOZ_HAIKU_SCALE");
   if (forceScale) {
@@ -30,7 +33,8 @@ double GetHaikuSystemScale() {
     }
   }
   if (be_plain_font && be_plain_font->Size() > 0.0f) {
-    return std::max(1.0, double(be_plain_font->Size() / 12.0f));
+    double scale = std::round(be_plain_font->Size() / 12.0 * 4.0) / 4.0;
+    return std::max(1.0, scale);
   }
   return 1.0;
 }
