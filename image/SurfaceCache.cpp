@@ -1060,7 +1060,9 @@ SurfaceCache::Initialize()
   // Compute the size of the surface cache.
   uint64_t memorySize = PR_GetPhysicalMemorySize();
   if (memorySize == 0) {
+#if !defined(XP_HAIKU)
     MOZ_ASSERT_UNREACHABLE("PR_GetPhysicalMemorySize not implemented here");
+#endif
     memorySize = 256 * 1024 * 1024;  // Fall back to 256MB.
   }
   uint64_t proposedSize = memorySize / surfaceCacheSizeFactor;

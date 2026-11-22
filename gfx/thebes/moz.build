@@ -104,6 +104,22 @@ elif 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
             'gfxXlibSurface.cpp',
         ]
 
+elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'haiku':
+    EXPORTS += [
+        'gfxFT2FontBase.h',
+        'gfxPlatformHaiku.h',
+    ]
+    EXPORTS.mozilla.gfx += [
+        'PrintTargetPDF.h',
+    ]
+    SOURCES += [
+        'gfxFcPlatformFontList.cpp',
+        'gfxFT2FontBase.cpp',
+        'gfxFT2Utils.cpp',
+        'gfxPlatformHaiku.cpp',
+        'PrintTargetPDF.cpp',
+    ]
+
 elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'windows':
     EXPORTS += [
         'gfxDWriteFonts.h',
@@ -219,7 +235,7 @@ LOCAL_INCLUDES += [
     '/dom/xml',
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('gtk2', 'gtk3'):
+if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('gtk2', 'gtk3', 'haiku'):
     DEFINES['MOZ_ENABLE_FREETYPE'] = True
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'windows':
@@ -234,6 +250,11 @@ CFLAGS += CONFIG['TK_CFLAGS']
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('gtk2', 'gtk3'):
     CXXFLAGS += CONFIG['MOZ_PANGO_CFLAGS']
+
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'haiku':
+    # No GTK/pango to pull in FreeType and fontconfig on Haiku.
+    CXXFLAGS += CONFIG['CAIRO_FT_CFLAGS']
+    OS_LIBS += CONFIG['FT2_LIBS']
 
 LOCAL_INCLUDES += CONFIG['SKIA_INCLUDES']
 LOCAL_INCLUDES += ['/media/libyuv/include']

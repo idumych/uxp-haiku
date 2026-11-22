@@ -1,0 +1,46 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+EXPORTS += [
+    'nsWindow.h',
+]
+
+# The Be API headers don't mix with unified builds (and need RTTI for
+# dynamic_cast in BLooper/BHandler code), so build each file alone.
+SOURCES += [
+    'GfxInfo.cpp',
+    'HaikuApplication.cpp',
+    'HaikuCursor.cpp',
+    'HaikuKeyboard.cpp',
+    'HaikuUtils.cpp',
+    'HaikuView.cpp',
+    'HaikuWindowBuffer.cpp',
+    'nsAppShell.cpp',
+    'nsBidiKeyboard.cpp',
+    'nsClipboard.cpp',
+    'nsDragService.cpp',
+    'nsFilePicker.cpp',
+    'nsIdleServiceHaiku.cpp',
+    'nsLookAndFeel.cpp',
+    'nsScreenHaiku.cpp',
+    'nsSound.cpp',
+    'nsWidgetFactory.cpp',
+    'nsWindow.cpp',
+]
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+FINAL_LIBRARY = 'xul'
+
+LOCAL_INCLUDES += [
+    '/gfx/layers/client',
+    '/layout/base',
+    '/layout/generic',
+    '/layout/xul',
+    '/widget',
+]
+
+for f in ('HaikuApplication.cpp', 'HaikuView.cpp', 'nsFilePicker.cpp'):
+    SOURCES[f].flags += ['-frtti']
