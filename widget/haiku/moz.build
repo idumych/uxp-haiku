@@ -11,8 +11,9 @@ EXPORTS.mozilla.widget += [
     'HaikuRemote.h',
 ]
 
-# The Be API headers don't mix with unified builds (and need RTTI for
-# dynamic_cast in BLooper/BHandler code), so build each file alone.
+# The Be API headers don't mix with unified builds, so build each file alone.
+# No -frtti: the rest of Gecko is built without RTTI, so classes derived from
+# Gecko classes would need typeinfo that doesn't exist.
 SOURCES += [
     'GfxInfo.cpp',
     'HaikuApplication.cpp',
@@ -51,8 +52,5 @@ LOCAL_INCLUDES += [
     '/layout/xul',
     '/widget',
 ]
-
-for f in ('HaikuApplication.cpp', 'HaikuView.cpp', 'nsFilePicker.cpp'):
-    SOURCES[f].flags += ['-frtti']
 
 CXXFLAGS += CONFIG['MOZ_CAIRO_CFLAGS']
