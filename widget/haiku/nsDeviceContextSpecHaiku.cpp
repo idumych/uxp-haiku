@@ -5,6 +5,7 @@
 #include "nsDeviceContextSpecHaiku.h"
 
 #include "HaikuPrintView.h"
+#include "HaikuRemote.h"
 #include "HaikuUtils.h"
 
 #include <cstring>
