@@ -1884,6 +1884,8 @@ var gHeader = {
     let key = document.getElementById("focusSearch").getAttribute("key");
 #ifdef XP_MACOSX
     let keyModifier = aEvent.metaKey;
+#elif defined(MOZ_WIDGET_HAIKU)
+    let keyModifier = aEvent.altKey;
 #else
     let keyModifier = aEvent.ctrlKey;
 #endif
