@@ -12,12 +12,11 @@ EXPORTS.mozilla.widget += [
 ]
 
 # The Be API headers don't mix with unified builds, so build each file alone.
-# No -frtti: the rest of Gecko is built without RTTI, so classes derived from
-# Gecko classes would need typeinfo that doesn't exist.
 SOURCES += [
     'GfxInfo.cpp',
     'HaikuApplication.cpp',
     'HaikuCursor.cpp',
+    'HaikuFilePanel.cpp',
     'HaikuKeyboard.cpp',
     'HaikuUtils.cpp',
     'HaikuView.cpp',
@@ -38,12 +37,20 @@ SOURCES += [
 
 if CONFIG['NS_PRINTING']:
     SOURCES += [
+        'HaikuPrintView.cpp',
         'nsDeviceContextSpecHaiku.cpp',
     ]
+    SOURCES['HaikuPrintView.cpp'].flags += ['-frtti']
 
 include('/ipc/chromium/chromium-config.mozbuild')
 
 FINAL_LIBRARY = 'xul'
+
+# libbe dynamic_casts BHandler/BView objects, so files defining classes derived
+# from Be classes need RTTI. They must not define Gecko polymorphic classes,
+# whose typeinfo doesn't exist (Gecko is built without RTTI).
+for f in ('HaikuApplication.cpp', 'HaikuFilePanel.cpp', 'HaikuView.cpp'):
+    SOURCES[f].flags += ['-frtti']
 
 # BFilePanel lives in libtracker, not libbe.
 OS_LIBS += ['tracker']

@@ -18,8 +18,8 @@
 #pragma GCC visibility push(default)
 class BFilePanel;
 class BRefFilter;
+class BLooper;
 #pragma GCC visibility pop
-class FilePanelLooper;
 class nsIWidget;
 
 class nsFilePicker final : public nsBaseFilePicker
@@ -69,7 +69,7 @@ private:
   bool mRunning;
 
   BFilePanel* mPanel;
-  FilePanelLooper* mLooper;
+  BLooper* mLooper;
   BRefFilter* mRefFilter;
 };
 

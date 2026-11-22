@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsDeviceContextSpecHaiku.h"
+
+#include "HaikuPrintView.h"
 #include "HaikuUtils.h"
 
 #include <cstring>
@@ -97,23 +99,6 @@ class PrintTargetHaiku final : public PrintTarget {
 
   IntSize mPixelSize;
   RefPtr<nsDeviceContextSpecHaiku> mSpec;
-};
-
-// A hidden window whose view draws one page bitmap for BPrintJob.
-class PrintPageView : public BView {
- public:
-  explicit PrintPageView(BRect aFrame)
-      : BView(aFrame, "page", B_FOLLOW_NONE, B_WILL_DRAW) {}
-
-  void Draw(BRect aUpdate) override {
-    if (mPage) {
-      DrawBitmap(mPage, mPage->Bounds(), mDest,
-                 B_FILTER_BITMAP_BILINEAR);
-    }
-  }
-
-  BBitmap* mPage = nullptr;
-  BRect mDest;
 };
 
 NS_IMPL_ISUPPORTS(nsDeviceContextSpecHaiku, nsIDeviceContextSpec)
@@ -223,7 +208,7 @@ nsDeviceContextSpecHaiku::EndDocument() {
   BRect viewFrame(0, 0, printable.Width(), printable.Height());
   BWindow* window = new BWindow(viewFrame, "print", B_NO_BORDER_WINDOW_LOOK,
                                 B_NORMAL_WINDOW_FEEL, B_AVOID_FOCUS);
-  PrintPageView* view = new PrintPageView(viewFrame);
+  BView* view = mozilla::widget::CreatePrintPageView(viewFrame);
   window->AddChild(view);
   window->Hide();
   window->Show();  // starts the looper; the window stays hidden
@@ -235,8 +220,7 @@ nsDeviceContextSpecHaiku::EndDocument() {
 
   for (int32 i = first; i <= last && job.CanContinue(); ++i) {
     if (window->Lock()) {
-      view->mPage = mPages[i - 1];
-      view->mDest = dest;
+      mozilla::widget::SetPrintPage(view, mPages[i - 1], dest);
       job.DrawView(view, viewFrame, BPoint(0, 0));
       window->Unlock();
     }
