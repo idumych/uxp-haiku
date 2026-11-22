@@ -13,9 +13,13 @@
 #include "nsString.h"
 #include "nsTArray.h"
 
+// Haiku API classes: declare them with default visibility, or gcc_hidden.h makes
+// them hidden and libxul can't link against libbe.
+#pragma GCC visibility push(default)
 class BFilePanel;
-class FilePanelLooper;
 class BRefFilter;
+#pragma GCC visibility pop
+class FilePanelLooper;
 class nsIWidget;
 
 class nsFilePicker final : public nsBaseFilePicker

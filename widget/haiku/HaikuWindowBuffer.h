@@ -14,8 +14,12 @@
 class nsWindow;
 class HaikuWindow;
 class HaikuView;
+// Haiku API classes: declare them with default visibility, or gcc_hidden.h makes
+// them hidden and libxul can't link against libbe.
+#pragma GCC visibility push(default)
 class BView;
 class BBitmap;
+#pragma GCC visibility pop
 
 namespace mozilla::widget {
 
