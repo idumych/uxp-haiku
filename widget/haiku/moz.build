@@ -24,6 +24,7 @@ SOURCES += [
     'nsFilePicker.cpp',
     'nsIdleServiceHaiku.cpp',
     'nsLookAndFeel.cpp',
+    'nsNativeThemeHaiku.cpp',
     'nsScreenHaiku.cpp',
     'nsSound.cpp',
     'nsWidgetFactory.cpp',
