@@ -56,6 +56,9 @@ if os_win:
         'src/chrome/common/process_watcher_win.cc',
         'src/chrome/common/transport_dib_win.cc',
     ]
+elif os_haiku:
+    # System libevent; nothing to build in src/third_party.
+    OS_LIBS += ['event']
 else:
     DIRS += ['src/third_party']
 
@@ -124,7 +127,14 @@ if os_linux:
         'src/base/time_posix.cc',
     ]
 
-if os_bsd or os_linux or os_solaris:
+if os_haiku:
+    SOURCES += [
+        'src/base/atomicops_internals_x86_gcc.cc',
+        'src/base/process_util_linux.cc',
+        'src/base/time_posix.cc',
+    ]
+
+if os_bsd or os_linux or os_solaris or os_haiku:
     if 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
         SOURCES += [
             'src/base/message_pump_glib.cc',
@@ -137,7 +147,7 @@ if os_solaris:
        'src/base/time_posix.cc',
     ]
     
-else:
+elif not os_haiku:
     LOCAL_INCLUDES += ['src/third_party/libevent/linux']
 
 ost = CONFIG['OS_TEST']

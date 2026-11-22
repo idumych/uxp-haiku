@@ -9,6 +9,7 @@ os_macosx = 0
 os_bsd = 0
 os_linux = 0
 os_solaris = 0
+os_haiku = 0
 
 if CONFIG['OS_ARCH'] == 'WINNT':
     os_win = 1
@@ -24,11 +25,15 @@ else:
     elif CONFIG['OS_ARCH'] in ['SunOS']:
          os_solaris = 1 
          libevent_include_suffix = 'solaris'
+    elif CONFIG['OS_ARCH'] == 'Haiku':
+        # Haiku uses the system libevent (libevent_devel from HaikuPorts).
+        os_haiku = 1
+        libevent_include_suffix = None
     else:
         os_linux = 1
         libevent_include_suffix = 'linux'
 
-if os_posix:
+if os_posix and not os_haiku:
     DEFINES['HAVE_CONFIG_H'] = True
     LOCAL_INCLUDES += sorted([
         'libevent',

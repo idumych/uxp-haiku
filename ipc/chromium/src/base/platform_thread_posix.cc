@@ -15,6 +15,8 @@
 #elif defined(OS_LINUX)
 #include <sys/syscall.h>
 #include <sys/prctl.h>
+#elif defined(OS_HAIKU)
+#include <OS.h>
 #endif
 
 #if !defined(OS_MACOSX)
@@ -56,6 +58,8 @@ PlatformThreadId PlatformThread::CurrentId() {
   return lwp_gettid();
 #elif defined(OS_FREEBSD)
   return pthread_getthreadid_np();
+#elif defined(OS_HAIKU)
+  return find_thread(NULL);
 #endif
 }
 
@@ -104,6 +108,8 @@ void PlatformThread::SetName(const char* name) {
   pthread_set_name_np(pthread_self(), name);
 #elif defined(OS_SOLARIS)
   pthread_setname_np(pthread_self(), name);  
+#elif defined(OS_HAIKU)
+  rename_thread(find_thread(NULL), name);
 #else
 #endif
 }
