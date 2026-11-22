@@ -7,20 +7,53 @@
 #define nsDragService_h__
 
 #include "nsBaseDragService.h"
+#include "nsCOMPtr.h"
+#include "nsIArray.h"
+#include "mozilla/UniquePtr.h"
 
-/* Placeholder drag service: native drag and drop is not implemented yet, so
- * drags never start (InvokeDragSessionImpl fails) and nothing is dropped. */
+class BMessage;
+class nsWindow;
+
+/*
+ * Drag and drop with Be API drag messages (B_SIMPLE_DATA BMessages).
+ *
+ * Incoming: HaikuView forwards the drag BMessage to nsWindow, which keeps
+ * the message here (SetDragMessage) and dispatches eDragEnter/Over/Exit and
+ * eDrop. Supported data: text ("text/plain" B_MIME_TYPE, UTF-8), URLs
+ * ("text/uri-list" or "be:url"), and files ("refs" entry_refs).
+ *
+ * Outgoing: InvokeDragSessionImpl builds such a BMessage from the first
+ * transferable and starts BView::DragMessage(). The session ends on the next
+ * mouse-up in the source window (or on a drop into one of our windows).
+ */
 class nsDragService final : public nsBaseDragService
 {
 public:
   nsDragService();
 
+  static nsDragService* GetInstance();
+
+  // nsIDragSession
+  NS_IMETHOD GetNumDropItems(uint32_t* aNumItems) override;
+  NS_IMETHOD GetData(nsITransferable* aTransferable,
+                     uint32_t aItemIndex) override;
+  NS_IMETHOD IsDataFlavorSupported(const char* aDataFlavor,
+                                   bool* _retval) override;
+  NS_IMETHOD EndDragSession(bool aDoneDrag) override;
+
+  // Main thread. Takes a copy of the BMessage from the BWindow thread.
+  void SetDragMessage(mozilla::UniquePtr<BMessage> aMessage);
+  bool IsOutgoingDrag() const { return !!mSourceDataItems; }
+
 protected:
   virtual ~nsDragService();
-
   nsresult InvokeDragSessionImpl(nsIArray* aTransferableArray,
                                  nsIScriptableRegion* aDragRgn,
                                  uint32_t aActionType) override;
+
+private:
+  nsCOMPtr<nsIArray> mSourceDataItems;
+  mozilla::UniquePtr<BMessage> mDragMessage;
 };
 
 #endif // nsDragService_h__

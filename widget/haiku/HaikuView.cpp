@@ -147,6 +147,14 @@ void HaikuView::GetCurrentMouseState(int32& aButtons, int32& aModifiers) {
 }
 
 void HaikuView::MessageReceived(BMessage* aMessage) {
+  if (aMessage->WasDropped() && mGeckoWindow) {
+    BPoint where = aMessage->DropPoint();
+    ConvertFromScreen(&where);
+    mGeckoWindow->OnHaikuDrag(nsWindow::eHaikuDrop, where.x, where.y,
+                              aMessage, ::modifiers());
+    return;
+  }
+
   switch (aMessage->what) {
     case B_MOUSE_WHEEL_CHANGED: {
       if (!mGeckoWindow) {
@@ -216,6 +224,18 @@ void HaikuView::MouseMoved(BPoint aPoint, uint32 aTransit,
   int32 buttons = 0, modifiers = 0;
   GetCurrentMouseState(buttons, modifiers);
   mLastButtons = buttons;
+
+  if (aMessage) {
+    // A drag (ours or another app's) is over the view.
+    nsWindow::HaikuDragPhase phase = nsWindow::eHaikuDragOver;
+    if (aTransit == B_ENTERED_VIEW) {
+      phase = nsWindow::eHaikuDragEnter;
+    } else if (aTransit == B_EXITED_VIEW || aTransit == B_OUTSIDE_VIEW) {
+      phase = nsWindow::eHaikuDragExit;
+    }
+    mGeckoWindow->OnHaikuDrag(phase, aPoint.x, aPoint.y, aMessage, modifiers);
+    return;
+  }
 
   switch (aTransit) {
     case B_ENTERED_VIEW:
