@@ -101,6 +101,18 @@ void HaikuWindow::Minimize(bool aMinimize) {
   }
 }
 
+void HaikuWindow::WorkspaceActivated(int32 aWorkspace, bool aActive) {
+  BWindow::WorkspaceActivated(aWorkspace, aActive);
+  // Coming back to our workspace: keep keyboard focus on the Gecko view so
+  // Gecko's own focus (restored on WindowActivated) still gets key events.
+  if (aActive && IsActive()) {
+    BView* view = ChildAt(0);
+    if (view) {
+      view->MakeFocus(true);
+    }
+  }
+}
+
 void HaikuWindow::MessageReceived(BMessage* aMessage) {
   if (aMessage->what == kMsgGeckoInvalidate) {
     BRect r;

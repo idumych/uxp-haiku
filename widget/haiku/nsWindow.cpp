@@ -206,7 +206,10 @@ NS_IMETHODIMP nsWindow::Show(bool aState) {
 
   if (mWindow->Lock()) {
     if (aState) {
+      // Windows (popups especially) may be reused after the user switched
+      // workspaces: show them on the current one.
       if (mWindow->IsHidden()) {
+        mWindow->SetWorkspaces(B_CURRENT_WORKSPACE);
         mWindow->Show();
       }
       if (mWindow->IsMinimized()) {
@@ -296,10 +299,15 @@ void nsWindow::SetSizeMode(nsSizeMode aMode) {
   if (aMode == mSizeMode || !mWindow) {
     return;
   }
-  if (aMode == nsSizeMode_Fullscreen || mSizeMode == nsSizeMode_Fullscreen) {
-    MakeFullScreen(aMode == nsSizeMode_Fullscreen);
-    mSizeMode = aMode;
+  if (aMode == nsSizeMode_Fullscreen) {
+    MakeFullScreen(true);
     return;
+  }
+  if (mSizeMode == nsSizeMode_Fullscreen) {
+    MakeFullScreen(false);
+    if (aMode == nsSizeMode_Normal) {
+      return;
+    }
   }
 
   if (mSizeMode == nsSizeMode_Normal) {
@@ -342,6 +350,50 @@ void nsWindow::SetSizeMode(nsSizeMode aMode) {
     mWidgetListener->WindowResized(this, mBounds.width, mBounds.height);
     mWidgetListener->SizeModeChanged(mSizeMode);
   }
+}
+
+// Full screen: hide the tab and borders, then let nsBaseWidget resize the
+// window to the screen (and back to the saved bounds afterwards).
+NS_IMETHODIMP nsWindow::HideWindowChrome(bool aShouldHide) {
+  if (!mWindow || aShouldHide == mChromeHidden) {
+    return NS_OK;
+  }
+  if (mWindow->Lock()) {
+    if (aShouldHide) {
+      mSavedLook = mWindow->Look();
+      mWindow->SetLook(B_NO_BORDER_WINDOW_LOOK);
+    } else {
+      mWindow->SetLook(mSavedLook);
+    }
+    mWindow->Unlock();
+  }
+  mChromeHidden = aShouldHide;
+  return NS_OK;
+}
+
+nsresult nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen* aTargetScreen) {
+  if (!mWindow) {
+    return NS_ERROR_FAILURE;
+  }
+  if (aFullScreen && mSizeMode != nsSizeMode_Fullscreen) {
+    mRestoredBounds = Some(mBounds);
+  }
+  // Hides/restores the chrome and resizes to the screen or the old bounds.
+  nsBaseWidget::InfallibleMakeFullScreen(aFullScreen, aTargetScreen);
+  if (mWindow->Lock()) {
+    if (aFullScreen) {
+      mWindow->Activate(true);
+    }
+    UpdateBounds();
+    mWindow->Unlock();
+  }
+  mSizeMode = aFullScreen ? nsSizeMode_Fullscreen : nsSizeMode_Normal;
+  if (mWidgetListener) {
+    mWidgetListener->SizeModeChanged(mSizeMode);
+    mWidgetListener->FullscreenChanged(aFullScreen);
+  }
+  SchedulePaint();
+  return NS_OK;
 }
 
 nsresult nsWindow::GetRestoredBounds(LayoutDeviceIntRect& aRect) {
@@ -699,6 +751,11 @@ void nsWindow::OnHaikuWindowActivated(bool aActive) {
     }
     if (!self->mWidgetListener) {
       return;
+    }
+    if (aActive && self->mSizeMode == nsSizeMode_Minimized) {
+      // Restored from the Deskbar.
+      self->mSizeMode = nsSizeMode_Normal;
+      self->mWidgetListener->SizeModeChanged(nsSizeMode_Normal);
     }
     if (aActive) {
       self->mWidgetListener->WindowActivated();

@@ -29,6 +29,7 @@ class HaikuWindow : public BWindow {
   void FrameResized(float aWidth, float aHeight) override;
   void Zoom(BPoint aOrigin, float aWidth, float aHeight) override;
   void Minimize(bool aMinimize) override;
+  void WorkspaceActivated(int32 aWorkspace, bool aActive) override;
 
   void DetachGeckoWindow() { mGeckoWindow = nullptr; }
 

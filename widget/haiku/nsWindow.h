@@ -76,7 +76,9 @@ class nsWindow final : public nsBaseWidget {
   NS_IMETHOD_(TextEventDispatcherListener*)
       GetNativeTextEventDispatcherListener() override;
   nsIMEUpdatePreference GetIMEUpdatePreference() override;
-  NS_IMETHOD HideWindowChrome(bool aShouldHide) override { return NS_OK; }
+  NS_IMETHOD HideWindowChrome(bool aShouldHide) override;
+  nsresult MakeFullScreen(bool aFullScreen,
+                          nsIScreen* aTargetScreen = nullptr) override;
   void SetSizeConstraints(const SizeConstraints& aConstraints) override;
   float GetDPI() override;
   double GetDefaultScaleInternal() override;
@@ -143,6 +145,8 @@ class nsWindow final : public nsBaseWidget {
   mozilla::Maybe<LayoutDeviceIntRect> mRestoredBounds;
   InputContext mInputContext;
   BRect mSavedFrame;
+  window_look mSavedLook = B_TITLED_WINDOW_LOOK;
+  bool mChromeHidden = false;
   mozilla::UniquePtr<BCursor> mCustomCursor;
 
   bool mVisible;
