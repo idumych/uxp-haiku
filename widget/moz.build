@@ -8,7 +8,8 @@ toolkit = CONFIG['MOZ_WIDGET_TOOLKIT']
 if toolkit in ('cocoa', 'uikit', 'haiku'):
     DIRS += [toolkit]
 
-if toolkit in ('gtk2', 'gtk3'):
+if toolkit in ('gtk2', 'gtk3', 'haiku'):
+    # haiku: embedding/components/printingui/unixshared includes it.
     EXPORTS += ['nsIPrintDialogService.h']
 
 if toolkit == 'windows':
