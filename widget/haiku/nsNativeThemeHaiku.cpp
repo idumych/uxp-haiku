@@ -14,6 +14,7 @@
 #include "nsAttrValueInlines.h"
 #include "nsDeviceContext.h"
 #include "nsGkAtoms.h"
+#include "nsIContent.h"
 #include "nsIFrame.h"
 #include "nsNameSpaceManager.h"
 #include "nsPresContext.h"
@@ -185,6 +186,11 @@ bool IsTextFieldLike(uint8_t aWidgetType) {
       return true;
   }
   return false;
+}
+
+bool IsFrameContentNodeInNamespace(nsIFrame* aFrame, uint32_t aNamespace) {
+  nsIContent* content = aFrame ? aFrame->GetContent() : nullptr;
+  return content && content->IsInNamespace(aNamespace);
 }
 
 int32_t ScrollbarWidth(uint8_t aWidgetType) {
