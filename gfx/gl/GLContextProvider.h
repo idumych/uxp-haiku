@@ -56,8 +56,11 @@ namespace gl {
 #undef GL_CONTEXT_PROVIDER_NAME
 
 #if defined(MOZ_WIDGET_HAIKU)
-  // No GL on Haiku yet: basic compositor, no WebGL.
-  #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderNull
+  // Haiku: offscreen GL (WebGL) through OSMesa; compositing stays basic.
+  #define GL_CONTEXT_PROVIDER_NAME GLContextProviderOSMesa
+  #include "GLContextProviderImpl.h"
+  #undef GL_CONTEXT_PROVIDER_NAME
+  #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderOSMesa
 #elif defined(MOZ_X11)
   #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderX11
 #elif !defined(GL_CONTEXT_PROVIDER_DEFAULT)
