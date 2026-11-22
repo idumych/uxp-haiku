@@ -290,6 +290,11 @@ fi
 if [ -n "$LD_LIBRARY_PATH_64" ]; then
 	LD_LIBRARY_PATH_64=${MOZ_DIST_BIN}:${MOZ_DIST_BIN}/plugins:${MRE_HOME}${LD_LIBRARY_PATH_64:+":$LD_LIBRARY_PATH_64"}
 fi
+## Set LIBRARY_PATH for Haiku (its runtime loader ignores LD_LIBRARY_PATH)
+if [ `uname -s` = "Haiku" ]; then
+	LIBRARY_PATH=${MOZ_DIST_BIN}:${MRE_HOME}${LIBRARY_PATH:+":$LIBRARY_PATH"}
+	export LIBRARY_PATH
+fi
 ## Set LIBPATH for AIX
 LIBPATH=${MOZ_DIST_BIN}:${MRE_HOME}${LIBPATH:+":$LIBPATH"}
 #
