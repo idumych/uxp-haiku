@@ -31,6 +31,9 @@ class HaikuApplication final : public BApplication {
 
   static HaikuApplication* sInstance;
   static sem_id sGeckoTerminatedSem;
+  static sem_id sWidgetsShutDownSem;
+  static bool sAppAwaitsShutdown;
+  static bool sGeckoShutDown;
   thread_id mThread;
 };
 

@@ -26,6 +26,9 @@ namespace mozilla::widget {
 
 HaikuApplication* HaikuApplication::sInstance = nullptr;
 sem_id HaikuApplication::sGeckoTerminatedSem = B_BAD_SEM_ID;
+sem_id HaikuApplication::sWidgetsShutDownSem = B_BAD_SEM_ID;
+bool HaikuApplication::sAppAwaitsShutdown = false;
+bool HaikuApplication::sGeckoShutDown = false;
 
 // This instance's signature (see HaikuForwardToRunningInstance).
 static char sSignature[B_MIME_TYPE_LENGTH];
@@ -188,8 +191,15 @@ void HaikuApplication::Shutdown() {
     return;
   }
   thread_id appThread = sInstance->mThread;
-  if (sInstance->Lock()) {
-    sInstance->Quit();
+  if (sAppAwaitsShutdown) {
+    // QuitRequested is waiting for this: it now returns true and the
+    // BApplication quits itself (Lock() would wait for it forever).
+    release_sem(sWidgetsShutDownSem);
+  } else {
+    // Lock() + Quit() from this thread leaves the looper locked, so the app
+    // thread could never handle the quit. Ask it to quit itself instead.
+    sGeckoShutDown = true;
+    sInstance->PostMessage(B_QUIT_REQUESTED);
   }
   if (appThread >= B_OK) {
     status_t status;
@@ -199,6 +209,7 @@ void HaikuApplication::Shutdown() {
 
 void HaikuApplication::NotifyGeckoExited() {
   if (sGeckoTerminatedSem >= B_OK) {
+    sAppAwaitsShutdown = true;
     release_sem(sGeckoTerminatedSem);
   }
 }
@@ -285,14 +296,16 @@ void HaikuApplication::ArgvReceived(int32 aArgc, char** aArgv) {
 }
 
 bool HaikuApplication::QuitRequested() {
-  if (!XRE_IsParentProcess()) {
+  if (!XRE_IsParentProcess() || sGeckoShutDown) {
     return true;
   }
 
   // Ask Gecko to quit on the main thread, then wait for it to finish.
   sGeckoTerminatedSem = create_sem(0, "gecko_terminated_sem");
+  sWidgetsShutDownSem = create_sem(0, "gecko_widgets_shut_down_sem");
   sem_id checkSem = create_sem(0, "gecko_quit_check_sem");
-  if (sGeckoTerminatedSem < B_OK || checkSem < B_OK) {
+  if (sGeckoTerminatedSem < B_OK || sWidgetsShutDownSem < B_OK ||
+      checkSem < B_OK) {
     return false;
   }
 
@@ -306,8 +319,16 @@ bool HaikuApplication::QuitRequested() {
     termRes = acquire_sem_etc(sGeckoTerminatedSem, 1, B_RELATIVE_TIMEOUT,
                               5000000);
   }
+  if (termRes == B_OK) {
+    // Gecko's event loop has ended, but XPCOM shutdown still frees BBitmaps
+    // and other libbe objects, which need be_app's app_server connection.
+    // Keep this BApplication alive until the widget module has shut down.
+    acquire_sem_etc(sWidgetsShutDownSem, 1, B_RELATIVE_TIMEOUT, 30000000);
+  }
   delete_sem(sGeckoTerminatedSem);
   sGeckoTerminatedSem = B_BAD_SEM_ID;
+  delete_sem(sWidgetsShutDownSem);
+  sWidgetsShutDownSem = B_BAD_SEM_ID;
   return termRes == B_OK;
 }
 
