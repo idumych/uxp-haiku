@@ -93,7 +93,7 @@ protected:
     // that we can ask for the layersbackend type.
     // We should remove this restriction until
     // we solve the D3D11 compositor backend issue.
-#if defined(XP_LINUX) || defined(XP_MACOSX)
+#if defined(XP_LINUX) || defined(XP_MACOSX) || defined(XP_HAIKU)
     return true;
 #endif
     return aBitDepth == 8;
