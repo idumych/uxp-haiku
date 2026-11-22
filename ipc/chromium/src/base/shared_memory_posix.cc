@@ -16,6 +16,11 @@
 #include "base/platform_thread.h"
 #include "base/string_util.h"
 #include "mozilla/UniquePtr.h"
+#if defined(OS_HAIKU)
+#include "base/eintr_wrapper.h"
+#include "mozilla/Atomics.h"
+#include <stdio.h>
+#endif
 
 namespace base {
 
@@ -146,6 +151,34 @@ typedef mozilla::UniquePtr<FILE, ScopedFILEClose> ScopedFILE;
 bool SharedMemory::CreateOrOpen(const std::wstring &name,
                                 int posix_flags, size_t size) {
   DCHECK(mapped_file_ == -1);
+
+#if defined(OS_HAIKU)
+  if (name == L"") {
+    // Private memory: use POSIX shared memory, which Haiku keeps on a
+    // ramfs (/boot/system/var/shared_memory), instead of a file in /tmp
+    // (on disk there). Unlinking right away makes it anonymous.
+    DCHECK(posix_flags & (O_RDWR | O_WRONLY));
+    static mozilla::Atomic<uint32_t> sCounter;
+    char shm_name[64];
+    int fd = -1;
+    for (int i = 0; i < 16 && fd < 0; i++) {
+      snprintf(shm_name, sizeof(shm_name), "/org.mozilla.ipc.%d.%u",
+               int(getpid()), uint32_t(++sCounter));
+      fd = HANDLE_EINTR(shm_open(shm_name, O_RDWR | O_CREAT | O_EXCL, 0600));
+    }
+    if (fd < 0)
+      return false;
+    shm_unlink(shm_name);
+    if (size && HANDLE_EINTR(ftruncate(fd, size)) != 0) {
+      close(fd);
+      return false;
+    }
+    mapped_file_ = fd;
+    struct stat st;
+    inode_ = fstat(fd, &st) == 0 ? st.st_ino : 0;
+    return true;
+  }
+#endif
 
   ScopedFILE file_closer;
   FILE *fp;
