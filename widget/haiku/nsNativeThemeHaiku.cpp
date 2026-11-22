@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsNativeThemeHaiku.h"
+#include "HaikuUtils.h"
 
 #include <algorithm>
 #include <math.h>
@@ -227,7 +228,10 @@ int32_t ScrollbarWidth(uint8_t aWidgetType) {
 
 NS_IMPL_ISUPPORTS_INHERITED(nsNativeThemeHaiku, nsNativeTheme, nsITheme)
 
-nsNativeThemeHaiku::nsNativeThemeHaiku() {}
+nsNativeThemeHaiku::nsNativeThemeHaiku() {
+  // be_control_look and ui_color() need the BApplication.
+  mozilla::widget::EnsureHaikuApplication();
+}
 
 nsNativeThemeHaiku::~nsNativeThemeHaiku() {}
 

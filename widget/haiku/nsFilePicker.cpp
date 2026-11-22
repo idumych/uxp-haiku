@@ -79,13 +79,13 @@ class FilePanelLooper : public BLooper
 public:
   explicit FilePanelLooper(nsFilePicker* aPicker)
     : BLooper("gecko_file_panel")
-    , mPicker(aPicker)
+    , mPicker(new mozilla::widget::MainThreadWeakRef<nsFilePicker>(aPicker))
     , mDone(false)
   {
   }
 
   // Called on the main thread before the picker goes away.
-  void DetachPicker() { mPicker = nullptr; }
+  void DetachPicker() { mPicker->Clear(); }
 
   void MessageReceived(BMessage* aMessage) override
   {
@@ -133,16 +133,18 @@ public:
     }
 
     mDone = true;
-    RefPtr<nsFilePicker> picker = mPicker;
-    if (!picker) {
-      return;
-    }
-    NS_DispatchToMainThread(NS_NewRunnableFunction(
-      [picker, result, paths]() { picker->OnPanelClosed(result, paths); }));
+    // Don't AddRef the picker on this thread; resolve it on the main thread.
+    RefPtr<mozilla::widget::MainThreadWeakRef<nsFilePicker>> ref = mPicker;
+    NS_DispatchToMainThread(NS_NewRunnableFunction([ref, result, paths]() {
+      RefPtr<nsFilePicker> picker = ref->get();
+      if (picker) {
+        picker->OnPanelClosed(result, paths);
+      }
+    }));
   }
 
 private:
-  nsFilePicker* mPicker;
+  RefPtr<mozilla::widget::MainThreadWeakRef<nsFilePicker>> mPicker;
   bool mDone;
 };
 

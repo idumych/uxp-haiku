@@ -367,11 +367,11 @@ void HaikuKeyboard::DispatchKeyEvent(nsWindow* aWindow, bool aIsDown,
     return;
   }
 
-  RefPtr<nsWindow> window(aWindow);
   nsCString bytes(aBytes, aNumBytes);
 
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      [window, aIsDown, aKey, aRawChar, aModifiers, bytes, aIsRepeat]() {
+  // Runs on the main thread (RunOnMain doesn't AddRef the window here).
+  aWindow->RunOnMain(
+      [aIsDown, aKey, aRawChar, aModifiers, bytes, aIsRepeat](nsWindow* window) {
         if (window->Destroyed() || !window->GetWidgetListener()) {
           return;
         }
@@ -466,7 +466,7 @@ void HaikuKeyboard::DispatchKeyEvent(nsWindow* aWindow, bool aIsDown,
             status != nsEventStatus_eConsumeNoDefault) {
           dispatcher->MaybeDispatchKeypressEvents(event, status);
         }
-      }));
+      });
 }
 
 }  // namespace mozilla::widget

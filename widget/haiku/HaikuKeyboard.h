@@ -21,7 +21,9 @@ mozilla::Modifiers GetGeckoModifiers(int32_t aHaikuModifiers);
 // (B_INPUT_METHOD_EVENT) bridge.
 class HaikuTextInputListener final : public TextEventDispatcherListener {
  public:
-  NS_DECL_ISUPPORTS
+  // Thread-safe: the BWindow thread holds references while posting input
+  // method events to the main thread.
+  NS_DECL_THREADSAFE_ISUPPORTS
 
   explicit HaikuTextInputListener(nsWindow* aWindow);
   void Detach();

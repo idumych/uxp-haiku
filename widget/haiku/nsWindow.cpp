@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 #include "HaikuCursor.h"
 #include "HaikuKeyboard.h"
@@ -95,6 +96,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
   mParent = aParent;
   mBounds = aRect;
   mTextListener = new HaikuTextInputListener(this);
+  mWeakRef = new MainThreadWeakRef<nsWindow>(this);
 
   if (mWindowType == eWindowType_child || mWindowType == eWindowType_plugin ||
       mWindowType == eWindowType_plugin_ipc_chrome ||
@@ -144,6 +146,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
   mView = new HaikuView(mWindow->Bounds(), this);
   mWindow->AddChild(mView);
   UpdateBounds();
+  mBuffer.SetTarget(BMessenger(mWindow));
 
   // The BWindow's looper runs once it is shown for the first time; start it
   // hidden so that Show() can just Show()/Hide().
@@ -175,10 +178,17 @@ void nsWindow::Destroy() {
     }
   }
 
+  if (mWeakRef) {
+    mWeakRef->Clear();
+  }
+
   if (mWindow) {
-    mView->DetachGeckoWindow();
-    mWindow->DetachGeckoWindow();
+    // Detach under the window lock: the BWindow thread only uses its
+    // nsWindow pointer from handlers, which run with the looper locked.
+    mBuffer.SetTarget(BMessenger());
     if (mWindow->Lock()) {
+      mView->DetachGeckoWindow();
+      mWindow->DetachGeckoWindow();
       mWindow->Quit();  // deletes the BWindow and its views
     }
     mWindow = nullptr;
@@ -411,14 +421,13 @@ void nsWindow::SchedulePaint() {
     return;
   }
   mPaintScheduled = true;
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction([self]() {
+  RunOnMain([](nsWindow* self) {
     self->mPaintScheduled = false;
     if (!self->mOnDestroyCalled) {
       self->Paint(LayoutDeviceIntRegion(LayoutDeviceIntRect(
           0, 0, self->mBounds.width, self->mBounds.height)));
     }
-  }));
+  });
 }
 
 NS_IMETHODIMP nsWindow::Invalidate(const LayoutDeviceIntRect& aRect) {
@@ -667,8 +676,7 @@ already_AddRefed<DrawTarget> nsWindow::StartRemoteDrawingInRegion(
 
 void nsWindow::EndRemoteDrawingInRegion(DrawTarget* aDrawTarget,
                                         LayoutDeviceIntRegion& aInvalidRegion) {
-  mBuffer.EndRemoteDrawingInRegion(this, mWindow, mView, aDrawTarget,
-                                   aInvalidRegion);
+  mBuffer.EndRemoteDrawingInRegion(aDrawTarget, aInvalidRegion);
 }
 
 // ---------------------------------------------------------------------------
@@ -678,15 +686,12 @@ void nsWindow::EndRemoteDrawingInRegion(DrawTarget* aDrawTarget,
 void nsWindow::DrawToHaikuView(BView* aView, BRect aRect) {
   mBuffer.DrawToView(aView, aRect);
   if (!mBuffer.HasContent()) {
-    RefPtr<nsWindow> self(this);
-    NS_DispatchToMainThread(
-        NS_NewRunnableFunction([self]() { self->SchedulePaint(); }));
+    RunOnMain([](nsWindow* self) { self->SchedulePaint(); });
   }
 }
 
 void nsWindow::OnHaikuFrameResized(int32_t aWidth, int32_t aHeight) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction([self, aWidth, aHeight]() {
+  RunOnMain([aWidth, aHeight](nsWindow* self) {
     if (self->mOnDestroyCalled || !self->mWindow) {
       return;
     }
@@ -698,26 +703,24 @@ void nsWindow::OnHaikuFrameResized(int32_t aWidth, int32_t aHeight) {
       self->mWidgetListener->WindowResized(self, aWidth, aHeight);
     }
     self->SchedulePaint();
-  }));
+  });
 }
 
 void nsWindow::OnHaikuFrameMoved(int32_t aX, int32_t aY) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction([self, aX, aY]() {
+  RunOnMain([aX, aY](nsWindow* self) {
     if (self->mOnDestroyCalled) {
       return;
     }
     self->mBounds.MoveTo(aX, aY);
     self->NotifyWindowMoved(aX, aY);
-  }));
+  });
 }
 
 void nsWindow::OnHaikuZoom(bool aIsZoomed) {
   if (mSettingSizeMode) {
     return;
   }
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction([self, aIsZoomed]() {
+  RunOnMain([aIsZoomed](nsWindow* self) {
     if (self->mOnDestroyCalled || !self->mWidgetListener) {
       return;
     }
@@ -726,23 +729,21 @@ void nsWindow::OnHaikuZoom(bool aIsZoomed) {
     }
     self->mSizeMode = aIsZoomed ? nsSizeMode_Maximized : nsSizeMode_Normal;
     self->mWidgetListener->SizeModeChanged(self->mSizeMode);
-  }));
+  });
 }
 
 void nsWindow::OnHaikuMinimize(bool aMinimize) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction([self, aMinimize]() {
+  RunOnMain([aMinimize](nsWindow* self) {
     if (self->mOnDestroyCalled || !self->mWidgetListener) {
       return;
     }
     self->mSizeMode = aMinimize ? nsSizeMode_Minimized : nsSizeMode_Normal;
     self->mWidgetListener->SizeModeChanged(self->mSizeMode);
-  }));
+  });
 }
 
 void nsWindow::OnHaikuWindowActivated(bool aActive) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction([self, aActive]() {
+  RunOnMain([aActive](nsWindow* self) {
     if (self->mOnDestroyCalled || !self->mWidgetListener) {
       return;
     }
@@ -762,16 +763,15 @@ void nsWindow::OnHaikuWindowActivated(bool aActive) {
     } else {
       self->mWidgetListener->WindowDeactivated();
     }
-  }));
+  });
 }
 
 void nsWindow::OnHaikuQuitRequested() {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction([self]() {
+  RunOnMain([](nsWindow* self) {
     if (!self->mOnDestroyCalled && self->mWidgetListener) {
       self->mWidgetListener->RequestWindowClose(self);
     }
-  }));
+  });
 }
 
 // Main thread.
@@ -796,9 +796,7 @@ void nsWindow::DispatchMouseEvent(EventMessage aMessage, float aX, float aY,
 void nsWindow::OnHaikuMouseDown(float aX, float aY, int32_t aChangedButton,
                                 int32_t aAllButtons, int32_t aClickCount,
                                 int32_t aModifiers) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      [self, aX, aY, aChangedButton, aAllButtons, aClickCount, aModifiers]() {
+  RunOnMain([aX, aY, aChangedButton, aAllButtons, aClickCount, aModifiers](nsWindow* self) {
         if (self->mOnDestroyCalled || self->RollupIfNeeded(aX, aY)) {
           return;
         }
@@ -809,14 +807,12 @@ void nsWindow::OnHaikuMouseDown(float aX, float aY, int32_t aChangedButton,
           self->DispatchMouseEvent(eContextMenu, aX, aY, button, aAllButtons,
                                    1, aModifiers);
         }
-      }));
+      });
 }
 
 void nsWindow::OnHaikuMouseUp(float aX, float aY, int32_t aReleasedButton,
                               int32_t aRemainingButtons, int32_t aModifiers) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      [self, aX, aY, aReleasedButton, aRemainingButtons, aModifiers]() {
+  RunOnMain([aX, aY, aReleasedButton, aRemainingButtons, aModifiers](nsWindow* self) {
         // The button went up in the window that started our outgoing drag:
         // the drag is over (dropped elsewhere, or handled by OnHaikuDrag).
         nsDragService* dragService = nsDragService::GetInstance();
@@ -826,36 +822,30 @@ void nsWindow::OnHaikuMouseUp(float aX, float aY, int32_t aReleasedButton,
         self->DispatchMouseEvent(eMouseUp, aX, aY,
                                  GetGeckoButton(aReleasedButton),
                                  aRemainingButtons, 1, aModifiers);
-      }));
+      });
 }
 
 void nsWindow::OnHaikuMouseMoved(float aX, float aY, int32_t aButtons,
                                  int32_t aModifiers) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(
-      NS_NewRunnableFunction([self, aX, aY, aButtons, aModifiers]() {
+  RunOnMain([aX, aY, aButtons, aModifiers](nsWindow* self) {
         self->DispatchMouseEvent(eMouseMove, aX, aY,
                                  WidgetMouseEvent::eLeftButton, aButtons, 0,
                                  aModifiers);
-      }));
+      });
 }
 
 void nsWindow::OnHaikuMouseCrossing(bool aEnter, float aX, float aY,
                                     int32_t aButtons, int32_t aModifiers) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(
-      NS_NewRunnableFunction([self, aEnter, aX, aY, aButtons, aModifiers]() {
+  RunOnMain([aEnter, aX, aY, aButtons, aModifiers](nsWindow* self) {
         self->DispatchMouseEvent(
             aEnter ? eMouseEnterIntoWidget : eMouseExitFromWidget, aX, aY,
             WidgetMouseEvent::eLeftButton, aButtons, 0, aModifiers);
-      }));
+      });
 }
 
 void nsWindow::OnHaikuWheelEvent(float aX, float aY, float aDeltaX,
                                  float aDeltaY, int32_t aModifiers) {
-  RefPtr<nsWindow> self(this);
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      [self, aX, aY, aDeltaX, aDeltaY, aModifiers]() {
+  RunOnMain([aX, aY, aDeltaX, aDeltaY, aModifiers](nsWindow* self) {
         if (self->mOnDestroyCalled || !self->mWidgetListener) {
           return;
         }
@@ -868,7 +858,7 @@ void nsWindow::OnHaikuWheelEvent(float aX, float aY, float aDeltaX,
         event.mLineOrPageDeltaY = int32_t(aDeltaY);
         event.mModifiers = GetGeckoModifiers(aModifiers);
         self->DispatchInputEvent(&event);
-      }));
+      });
 }
 
 void nsWindow::OnHaikuKeyEvent(bool aIsDown, int32_t aKey, int32_t aRawChar,
@@ -880,12 +870,10 @@ void nsWindow::OnHaikuKeyEvent(bool aIsDown, int32_t aKey, int32_t aRawChar,
 
 void nsWindow::OnHaikuDrag(HaikuDragPhase aPhase, float aX, float aY,
                            const BMessage* aMessage, int32_t aModifiers) {
-  RefPtr<nsWindow> self(this);
   // Copy the message: the original belongs to the BWindow thread.
-  BMessage* copy = aMessage ? new BMessage(*aMessage) : nullptr;
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      [self, aPhase, aX, aY, copy, aModifiers]() {
-        UniquePtr<BMessage> msg(copy);
+  std::shared_ptr<BMessage> copy(aMessage ? new BMessage(*aMessage) : nullptr);
+  RunOnMain([aPhase, aX, aY, copy, aModifiers](nsWindow* self) {
+        UniquePtr<BMessage> msg(copy ? new BMessage(*copy) : nullptr);
         if (self->mOnDestroyCalled || !self->mWidgetListener) {
           return;
         }
@@ -927,5 +915,5 @@ void nsWindow::OnHaikuDrag(HaikuDragPhase aPhase, float aX, float aY,
         if (aPhase == eHaikuDrop || (aPhase == eHaikuDragExit && !ours)) {
           dragService->EndDragSession(aPhase == eHaikuDrop);
         }
-      }));
+      });
 }
