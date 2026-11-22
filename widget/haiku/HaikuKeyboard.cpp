@@ -192,25 +192,30 @@ void HaikuTextInputListener::ProcessInputMethodEvent(BMessage* aMessage) {
   }
 }
 
+// Haiku's modifier bits already follow the user's keymap (which physical key
+// is Command, Control or Option), so map the logical bits:
+//   Command (B_COMMAND_KEY, left Alt by default) -> Alt, the accelerator on
+//     Haiku (ui.key.accelKey = 18, see all.js);
+//   Control (B_CONTROL_KEY)                       -> Control;
+//   Option  (B_OPTION_KEY, used for alternate characters, like AltGr)
+//                                                 -> AltGraph, so text typed
+//     with it still reaches editors;
+//   Menu/Windows key: Haiku reports it as B_MENU_KEY; it isn't a modifier.
 mozilla::Modifiers GetGeckoModifiers(int32_t aHaikuModifiers) {
   mozilla::Modifiers mods = mozilla::MODIFIER_NONE;
 
-  if (aHaikuModifiers & (B_SHIFT_KEY | B_LEFT_SHIFT_KEY | B_RIGHT_SHIFT_KEY)) {
+  if (aHaikuModifiers & B_SHIFT_KEY) {
     mods |= mozilla::MODIFIER_SHIFT;
   }
-
-  if (aHaikuModifiers & (B_CONTROL_KEY | B_LEFT_CONTROL_KEY | B_RIGHT_CONTROL_KEY)) {
+  if (aHaikuModifiers & B_COMMAND_KEY) {
     mods |= mozilla::MODIFIER_ALT;
   }
-
-  if (aHaikuModifiers & (B_COMMAND_KEY | B_LEFT_COMMAND_KEY | B_RIGHT_COMMAND_KEY)) {
+  if (aHaikuModifiers & B_CONTROL_KEY) {
     mods |= mozilla::MODIFIER_CONTROL;
   }
-
-  if (aHaikuModifiers & (B_OPTION_KEY | B_LEFT_OPTION_KEY | B_RIGHT_OPTION_KEY)) {
+  if (aHaikuModifiers & B_OPTION_KEY) {
     mods |= mozilla::MODIFIER_ALTGRAPH;
   }
-
   if (aHaikuModifiers & B_CAPS_LOCK) {
     mods |= mozilla::MODIFIER_CAPSLOCK;
   }
@@ -220,7 +225,6 @@ mozilla::Modifiers GetGeckoModifiers(int32_t aHaikuModifiers) {
   if (aHaikuModifiers & B_SCROLL_LOCK) {
     mods |= mozilla::MODIFIER_SCROLLLOCK;
   }
-
   return mods;
 }
 
@@ -385,9 +389,19 @@ void HaikuKeyboard::DispatchKeyEvent(nsWindow* aWindow, bool aIsDown,
         }
         char16_t charCode = keyString.IsEmpty() ? 0 : keyString[0];
 
-        // With Ctrl/Command held Haiku reports control characters; use the
-        // unmodified character instead.
-        if (charCode > 0 && charCode < 0x20 && charCode != 0x09 &&
+        // With Control held Haiku reports control characters, and with
+        // Command held the keymap may give another character; use the
+        // unmodified key's character so shortcuts match. The event carries
+        // Control/Alt, so editors won't insert it as text.
+        bool shortcutModifier = (aModifiers & (B_COMMAND_KEY | B_CONTROL_KEY));
+        if (shortcutModifier && aRawChar >= 0x20 && aRawChar <= 0x7E) {
+          char16_t c = static_cast<char16_t>(aRawChar);
+          if (geckoModifiers & MODIFIER_SHIFT) {
+            c = std::toupper(c);
+          }
+          keyString.Assign(c);
+          charCode = c;
+        } else if (charCode > 0 && charCode < 0x20 && charCode != 0x09 &&
             charCode != 0x0a && charCode != 0x0d && charCode != 0x08 &&
             charCode != 0x1b) {
           if (aRawChar >= 0x20 && aRawChar <= 0x7E) {

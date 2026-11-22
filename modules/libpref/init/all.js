@@ -4157,6 +4157,19 @@ pref("gfx.font_rendering.fontconfig.max_generic_substitutions", 3);
 #endif
 #endif
 
+#ifdef MOZ_WIDGET_HAIKU
+// Haiku HIG: the Command key (left Alt by default, B_COMMAND_KEY) is the
+// accelerator, delivered to Gecko as Alt. Haiku apps have no menu mnemonics,
+// so there is no menu access key; HTML/XUL access keys use Ctrl (+Shift in
+// content), as on macOS.
+pref("ui.key.accelKey", 18);
+pref("ui.key.menuAccessKey", 0);
+pref("ui.key.menuAccessKeyFocuses", false);
+pref("ui.key.generalAccessKey", -1);
+pref("ui.key.chromeAccess", 2);
+pref("ui.key.contentAccess", 3);
+#endif
+
 // Login Manager prefs
 pref("signon.rememberSignons",              true);
 pref("signon.rememberSignons.visibilityToggle", true);
