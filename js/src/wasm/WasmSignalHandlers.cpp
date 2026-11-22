@@ -238,7 +238,7 @@ class AutoSetHandlingSegFault
 #  define RFP_sig(p) ((p)->uc_mcontext.mc_regs[30])
 # endif
 #elif defined(XP_HAIKU)
-// Haiku: mcontext_t is struct vregs (see <arch/x86_64/signal.h>).
+// Haiku: mcontext_t is struct vregs (see <arch/x86_64/signal.h>, <arch/arm64/signal.h>).
 # define XMM_sig(p,i) ((p)->uc_mcontext.fpu.fp_fxsave.xmm[i])
 # define EIP_sig(p) ((p)->uc_mcontext.eip)
 # define RIP_sig(p) ((p)->uc_mcontext.rip)
@@ -258,6 +258,11 @@ class AutoSetHandlingSegFault
 # define R13_sig(p) ((p)->uc_mcontext.r13)
 # define R14_sig(p) ((p)->uc_mcontext.r14)
 # define R15_sig(p) ((p)->uc_mcontext.r15)
+# if defined(__aarch64__)
+// <arch/arm64/signal.h>: x[30], lr, sp, elr (the faulting pc), spsr, ...
+#  define EPC_sig(p) ((p)->uc_mcontext.elr)
+#  define RFP_sig(p) ((p)->uc_mcontext.x[29])
+# endif
 #elif defined(XP_DARWIN)
 # define EIP_sig(p) ((p)->uc_mcontext->__ss.__eip)
 # define RIP_sig(p) ((p)->uc_mcontext->__ss.__rip)
