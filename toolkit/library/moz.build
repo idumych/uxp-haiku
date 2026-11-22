@@ -212,6 +212,10 @@ OS_LIBS += CONFIG['ICONV_LIBS']
 if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('cocoa', 'uikit', 'haiku'):
     OS_LIBS += CONFIG['TK_LIBS']
 
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'haiku':
+    # gfx/thebes uses FreeType/fontconfig directly on Haiku.
+    OS_LIBS += CONFIG['FT2_LIBS']
+
 if CONFIG['MOZ_SNDIO']:
     OS_LIBS += [
         'sndio',
