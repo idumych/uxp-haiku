@@ -1332,6 +1332,13 @@ nsXREDirProvider::GetUserDataDirectoryHome(nsIFile** aFile, bool aLocal)
   status_t err = find_directory(aLocal ? B_USER_CACHE_DIRECTORY
                                        : B_USER_SETTINGS_DIRECTORY,
                                 -1, true, path, sizeof(path));
+  // ~/config/cache can be missing (it only shows through packagefs if it exists
+  // underneath) and can't be created then; keep the cache with the settings,
+  // as on Linux without XDG_CACHE_HOME.
+  if (aLocal && (err != B_OK || access(path, W_OK) != 0)) {
+    err = find_directory(B_USER_SETTINGS_DIRECTORY, -1, true, path,
+                         sizeof(path));
+  }
   if (err != B_OK)
     return NS_ERROR_FAILURE;
   rv = NS_NewNativeLocalFile(nsDependentCString(path), true,
