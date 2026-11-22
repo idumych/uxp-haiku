@@ -94,7 +94,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 
   mParent = aParent;
   mBounds = aRect;
-  mTextListener = new HaikuTextInputListener();
+  mTextListener = new HaikuTextInputListener(this);
 
   if (mWindowType == eWindowType_child || mWindowType == eWindowType_plugin ||
       mWindowType == eWindowType_plugin_ipc_chrome ||
@@ -185,6 +185,9 @@ void nsWindow::Destroy() {
     mView = nullptr;
   }
   mBuffer.Destroy();
+  if (mTextListener) {
+    mTextListener->Detach();
+  }
 
   nsBaseWidget::OnDestroy();
   nsBaseWidget::Destroy();
@@ -568,6 +571,18 @@ NS_IMETHODIMP_(InputContext) nsWindow::GetInputContext() {
 NS_IMETHODIMP_(TextEventDispatcherListener*)
 nsWindow::GetNativeTextEventDispatcherListener() {
   return mTextListener;
+}
+
+nsIMEUpdatePreference nsWindow::GetIMEUpdatePreference() {
+  // The input method asks for the caret position (B_INPUT_METHOD_LOCATION_
+  // REQUEST), so keep it up to date.
+  return nsIMEUpdatePreference(nsIMEUpdatePreference::NOTIFY_POSITION_CHANGE);
+}
+
+void nsWindow::OnHaikuInputMethodEvent(BMessage* aMessage) {
+  if (mTextListener) {
+    mTextListener->ProcessInputMethodEvent(aMessage);
+  }
 }
 
 void nsWindow::SetSizeConstraints(const SizeConstraints& aConstraints) {

@@ -116,7 +116,8 @@ void HaikuWindow::MessageReceived(BMessage* aMessage) {
 
 HaikuView::HaikuView(BRect aFrame, nsWindow* aGeckoWindow)
     : BView(aFrame, "GeckoRootView", B_FOLLOW_ALL,
-            B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE),
+            B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE |
+                B_INPUT_METHOD_AWARE),
       mGeckoWindow(aGeckoWindow) {
   SetViewColor(B_TRANSPARENT_COLOR);
 }
@@ -156,6 +157,11 @@ void HaikuView::MessageReceived(BMessage* aMessage) {
   }
 
   switch (aMessage->what) {
+    case B_INPUT_METHOD_EVENT:
+      if (mGeckoWindow) {
+        mGeckoWindow->OnHaikuInputMethodEvent(aMessage);
+      }
+      break;
     case B_MOUSE_WHEEL_CHANGED: {
       if (!mGeckoWindow) {
         break;

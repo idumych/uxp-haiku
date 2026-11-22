@@ -21,10 +21,175 @@ namespace mozilla::widget {
 NS_IMPL_ISUPPORTS(HaikuTextInputListener, TextEventDispatcherListener,
                   nsISupportsWeakReference)
 
+HaikuTextInputListener::HaikuTextInputListener(nsWindow* aWindow)
+    : mWindow(aWindow),
+      mLock("HaikuTextInputListener::mLock"),
+      mCaretScreenPos(100, 100),
+      mCaretHeight(20.0f) {}
+
+void HaikuTextInputListener::Detach() { mWindow = nullptr; }
+
+void HaikuTextInputListener::UpdateCaretPosition() {
+  if (!mWindow) {
+    return;
+  }
+  WidgetQueryContentEvent queryCaret(true, eQueryCaretRect, mWindow);
+  WidgetQueryContentEvent::Options options;
+  options.mRelativeToInsertionPoint = true;
+  queryCaret.InitForQueryCaretRect(0, options);
+  nsEventStatus status;
+  mWindow->DispatchEvent(&queryCaret, status);
+  if (!queryCaret.mSucceeded) {
+    return;
+  }
+  LayoutDeviceIntRect r = queryCaret.mReply.mRect;
+  LayoutDeviceIntPoint origin = mWindow->WidgetToScreenOffset();
+  MutexAutoLock lock(mLock);
+  mCaretScreenPos = BPoint(r.x + origin.x, r.y + origin.y);
+  mCaretHeight = r.height > 0 ? float(r.height) : 20.0f;
+}
+
 NS_IMETHODIMP
 HaikuTextInputListener::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
                                   const IMENotification& aNotification) {
+  switch (aNotification.mMessage) {
+    case NOTIFY_IME_OF_POSITION_CHANGE:
+    case NOTIFY_IME_OF_SELECTION_CHANGE:
+    case NOTIFY_IME_OF_FOCUS:
+      UpdateCaretPosition();
+      break;
+    case NOTIFY_IME_OF_BLUR:
+    case REQUEST_TO_COMMIT_COMPOSITION:
+    case REQUEST_TO_CANCEL_COMPOSITION: {
+      // Tell the input method to stop; it then sends B_INPUT_METHOD_STOPPED.
+      MutexAutoLock lock(mLock);
+      if (mReplyTo.IsValid()) {
+        BMessage msg(B_INPUT_METHOD_EVENT);
+        msg.AddInt32("be:opcode", B_INPUT_METHOD_STOPPED);
+        mReplyTo.SendMessage(&msg);
+      }
+      break;
+    }
+    default:
+      break;
+  }
   return NS_OK;
+}
+
+void HaikuTextInputListener::ProcessInputMethodEvent(BMessage* aMessage) {
+  int32 opcode = -1;
+  if (aMessage->FindInt32("be:opcode", &opcode) != B_OK) {
+    return;
+  }
+
+  RefPtr<HaikuTextInputListener> self(this);
+  switch (opcode) {
+    case B_INPUT_METHOD_STARTED: {
+      BMessenger replyTo;
+      if (aMessage->FindMessenger("be:reply_to", &replyTo) == B_OK) {
+        MutexAutoLock lock(mLock);
+        mReplyTo = replyTo;
+      }
+      break;
+    }
+
+    case B_INPUT_METHOD_LOCATION_REQUEST: {
+      BMessage reply(B_INPUT_METHOD_EVENT);
+      reply.AddInt32("be:opcode", B_INPUT_METHOD_LOCATION_REQUEST);
+      MutexAutoLock lock(mLock);
+      // One location per character of the current string; we only know the
+      // caret, so repeat it.
+      for (int32 i = 0; i < 64; ++i) {
+        reply.AddPoint("be:location_reply", mCaretScreenPos);
+        reply.AddFloat("be:height_reply", mCaretHeight);
+      }
+      if (mReplyTo.IsValid()) {
+        mReplyTo.SendMessage(&reply);
+      }
+      break;
+    }
+
+    case B_INPUT_METHOD_CHANGED: {
+      const char* str = nullptr;
+      bool confirmed = false;
+      int32 selStart = -1, selEnd = -1;
+      aMessage->FindString("be:string", &str);
+      aMessage->FindBool("be:confirmed", &confirmed);
+      aMessage->FindInt32("be:selection", 0, &selStart);
+      aMessage->FindInt32("be:selection", 1, &selEnd);
+      nsCString text(str ? str : "");
+      NS_DispatchToMainThread(NS_NewRunnableFunction(
+          [self, text, confirmed, selStart, selEnd]() {
+            nsWindow* window = self->mWindow;
+            if (!window || window->Destroyed()) {
+              return;
+            }
+            RefPtr<TextEventDispatcher> dispatcher =
+                window->GetTextEventDispatcher();
+            if (!dispatcher ||
+                NS_FAILED(dispatcher->BeginNativeInputTransaction())) {
+              return;
+            }
+            nsEventStatus status = nsEventStatus_eIgnore;
+            NS_ConvertUTF8toUTF16 u16(text);
+            if (confirmed) {
+              if (!dispatcher->IsComposing()) {
+                if (u16.IsEmpty()) {
+                  return;
+                }
+                dispatcher->StartComposition(status);
+              }
+              dispatcher->CommitComposition(status, &u16);
+              return;
+            }
+            if (u16.IsEmpty()) {
+              if (dispatcher->IsComposing()) {
+                nsAutoString empty;
+                dispatcher->CommitComposition(status, &empty);
+              }
+              return;
+            }
+            if (!dispatcher->IsComposing()) {
+              dispatcher->StartComposition(status);
+            }
+            dispatcher->SetPendingCompositionString(u16);
+            dispatcher->AppendClauseToPendingComposition(
+                u16.Length(), TextRangeType::eRawClause);
+            if (selStart >= 0 && selStart <= selEnd) {
+              // be:selection is in bytes of the UTF-8 string.
+              uint32_t caret =
+                  NS_ConvertUTF8toUTF16(Substring(text, 0, selEnd)).Length();
+              dispatcher->SetCaretInPendingComposition(caret, 0);
+            }
+            dispatcher->FlushPendingComposition(status);
+          }));
+      break;
+    }
+
+    case B_INPUT_METHOD_STOPPED: {
+      {
+        MutexAutoLock lock(mLock);
+        mReplyTo = BMessenger();
+      }
+      NS_DispatchToMainThread(NS_NewRunnableFunction([self]() {
+        nsWindow* window = self->mWindow;
+        if (!window || window->Destroyed()) {
+          return;
+        }
+        RefPtr<TextEventDispatcher> dispatcher =
+            window->GetTextEventDispatcher();
+        if (dispatcher && dispatcher->IsComposing() &&
+            NS_SUCCEEDED(dispatcher->BeginNativeInputTransaction())) {
+          nsEventStatus status = nsEventStatus_eIgnore;
+          dispatcher->CommitComposition(status);
+        }
+      }));
+      break;
+    }
+
+    default:
+      break;
+  }
 }
 
 mozilla::Modifiers GetGeckoModifiers(int32_t aHaikuModifiers) {
