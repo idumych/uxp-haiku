@@ -11,7 +11,11 @@
 #include "nsIArray.h"
 #include "mozilla/UniquePtr.h"
 
+// Haiku API classes: declare them with default visibility, or gcc_hidden.h makes
+// them hidden and libxul can't link against libbe.
+#pragma GCC visibility push(default)
 class BMessage;
+#pragma GCC visibility pop
 class nsWindow;
 
 /*

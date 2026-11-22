@@ -12,7 +12,11 @@
 #include "nsString.h"
 #include "nsTArray.h"
 
+// Haiku API classes: declare them with default visibility, or gcc_hidden.h makes
+// them hidden and libxul can't link against libbe.
+#pragma GCC visibility push(default)
 class BBitmap;
+#pragma GCC visibility pop
 
 /*
  * Printing on Haiku.
