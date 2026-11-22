@@ -17,6 +17,7 @@
 #include <spawn.h>
 #include <sys/wait.h>
 #pragma GCC visibility push(default)
+#include <storage/File.h> // not <File.h>: dom/base/File.h shadows it here
 #include <Mime.h>
 #pragma GCC visibility pop
 #include "nsIFile.h"
