@@ -168,7 +168,9 @@ mozglue/build/target memory/replace/logalloc/replay/target: memory/replace/dummy
 endif
 endif
 ifeq (,$(MOZ_FOLD_LIBS))
+ifdef MOZ_BUILD_NSPR
 config/external/nss/target: config/external/nspr/pr/target config/external/nspr/ds/target config/external/nspr/libc/target
+endif
 endif
 # Most things are built during compile (target/host), but some things happen during export
 # Those need to depend on config/export for system wrappers.
