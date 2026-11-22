@@ -13,6 +13,9 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/UniquePtr.h"
+#include "nsThreadUtils.h"
+
+#include <utility>
 
 namespace mozilla::widget {
 class HaikuTextInputListener;
@@ -91,6 +94,24 @@ class nsWindow final : public nsBaseWidget {
   void EndRemoteDrawingInRegion(mozilla::gfx::DrawTarget* aDrawTarget,
                                 LayoutDeviceIntRegion& aInvalidRegion) override;
 
+  // Posts aFunc(nsWindow*) to the main thread; it doesn't run if this
+  // window has been destroyed by then. Safe to call from Be threads (it
+  // doesn't AddRef the nsWindow).
+  template <typename F>
+  void RunOnMain(F&& aFunc) {
+    RefPtr<mozilla::widget::MainThreadWeakRef<nsWindow>> ref = mWeakRef;
+    if (!ref) {
+      return;
+    }
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
+        [ref, func = std::forward<F>(aFunc)]() {
+          RefPtr<nsWindow> window = ref->get();
+          if (window && !window->Destroyed()) {
+            func(window.get());
+          }
+        }));
+  }
+
   // Called on the BWindow thread.
   void DrawToHaikuView(BView* aView, BRect aRect);
   void OnHaikuFrameResized(int32_t aWidth, int32_t aHeight);
@@ -141,6 +162,7 @@ class nsWindow final : public nsBaseWidget {
   nsCOMPtr<nsIWidget> mParent;
   mozilla::widget::HaikuWindowBuffer mBuffer;
   RefPtr<mozilla::widget::HaikuTextInputListener> mTextListener;
+  RefPtr<mozilla::widget::MainThreadWeakRef<nsWindow>> mWeakRef;
 
   mozilla::Maybe<LayoutDeviceIntRect> mRestoredBounds;
   InputContext mInputContext;

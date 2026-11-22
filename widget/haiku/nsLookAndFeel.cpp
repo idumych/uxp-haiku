@@ -38,6 +38,9 @@ nsLookAndFeel::nsLookAndFeel()
   : nsXPLookAndFeel()
   , mInitialized(false)
 {
+  // ui_color()/be_plain_font need the BApplication (may run before the
+  // app shell exists).
+  mozilla::widget::EnsureHaikuApplication();
 }
 
 nsLookAndFeel::~nsLookAndFeel()

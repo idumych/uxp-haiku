@@ -5,6 +5,7 @@
 #include "HaikuApplication.h"
 #include "nsAppShell.h"
 
+#include <mutex>
 #include <utility>
 
 #include "nsString.h"
@@ -19,22 +20,26 @@ sem_id HaikuApplication::sGeckoTerminatedSem = B_BAD_SEM_ID;
 static const char* kAppSignature = "application/x-vnd.Basilisk";
 static sem_id sInitSem = B_BAD_SEM_ID;
 
+// Starts the BApplication thread once and waits until it is running
+// (ReadyToRun), so be_app, be_plain_font, be_control_look and ui_color() are
+// usable. Thread-safe; called early from the app shell, look and feel, the
+// theme, screens and windows.
 void HaikuApplication::EnsureInitialized() {
-  if (be_app || sInstance || !XRE_IsParentProcess()) {
-    return;
-  }
-
-  sInitSem = create_sem(0, "gecko_app_init_sem");
-  thread_id thread = spawn_thread(AppThreadFunc, "BApplication_thread",
-                                  B_NORMAL_PRIORITY, nullptr);
-  if (thread >= B_OK) {
-    resume_thread(thread);
-    acquire_sem_etc(sInitSem, 1, B_RELATIVE_TIMEOUT, 10000000);
-  }
-  if (sInitSem >= B_OK) {
+  static std::once_flag sOnce;
+  std::call_once(sOnce, []() {
+    if (be_app || !XRE_IsParentProcess()) {
+      return;
+    }
+    sInitSem = create_sem(0, "gecko_app_init_sem");
+    thread_id thread = spawn_thread(AppThreadFunc, "BApplication_thread",
+                                    B_NORMAL_PRIORITY, nullptr);
+    if (thread >= B_OK) {
+      resume_thread(thread);
+      acquire_sem_etc(sInitSem, 1, B_RELATIVE_TIMEOUT, 10000000);
+    }
     delete_sem(sInitSem);
     sInitSem = B_BAD_SEM_ID;
-  }
+  });
 }
 
 void HaikuApplication::Shutdown() {

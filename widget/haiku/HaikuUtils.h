@@ -45,6 +45,8 @@
 
 #pragma GCC visibility pop
 
+#include "nsISupportsImpl.h"
+
 class imgIContainer;
 
 namespace mozilla::gfx {
@@ -52,6 +54,24 @@ class SourceSurface;
 }
 
 namespace mozilla::widget {
+
+// A weak, thread-safe handle to a main-thread object. Be API threads
+// (BWindow, BLooper) may copy it and post runnables holding it; the pointer
+// itself is only set, cleared and dereferenced on the main thread, so a
+// runnable that runs after the object is gone just sees null. This avoids
+// AddRef'ing main-thread-only XPCOM objects from Be threads.
+template <class T>
+class MainThreadWeakRef final {
+ public:
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MainThreadWeakRef)
+  explicit MainThreadWeakRef(T* aPtr) : mPtr(aPtr) {}
+  T* get() const { return mPtr; }    // main thread only
+  void Clear() { mPtr = nullptr; }  // main thread only
+
+ private:
+  ~MainThreadWeakRef() = default;
+  T* mPtr;
+};
 
 void EnsureHaikuApplication();
 double GetHaikuSystemScale();

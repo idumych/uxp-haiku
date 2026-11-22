@@ -28,12 +28,15 @@ class HaikuWindowBuffer final {
       const LayoutDeviceIntSize& aClientSize,
       const LayoutDeviceIntRegion& aInvalidRegion);
 
+  // Compositor thread. Copies the painted region to the front bitmap and
+  // asks the BWindow (through its messenger, never by locking it) to redraw
+  // that region from the front bitmap.
   void EndRemoteDrawingInRegion(
-      nsWindow* aGeckoWindow,
-      HaikuWindow* aWindow,
-      HaikuView* aView,
       mozilla::gfx::DrawTarget* aDrawTarget,
       const LayoutDeviceIntRegion& aInvalidRegion);
+
+  // Main thread: where to send redraw requests (invalid messenger = none).
+  void SetTarget(const BMessenger& aTarget);
 
   void DrawToView(BView* aView, BRect aRect);
 
@@ -44,6 +47,7 @@ class HaikuWindowBuffer final {
   mozilla::Mutex mRenderingLock;
   BBitmap* mBackBitmap;
   BBitmap* mFrontBitmap;
+  BMessenger mTarget;  // guarded by mRenderingLock
 };
 
 }  // namespace mozilla::widget
