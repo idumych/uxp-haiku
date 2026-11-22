@@ -50,6 +50,12 @@ if CONFIG['OS_ARCH'] in ('SunOS', 'NetBSD'):
     ]
     DEFINES['USE_SUN'] = True
 
+if CONFIG['OS_ARCH'] == 'Haiku':
+    SOURCES += [
+        'cubeb_haiku.cpp',
+    ]
+    DEFINES['USE_HAIKU'] = True
+
 if CONFIG['OS_TARGET'] == 'Darwin':
     SOURCES += [
         'cubeb_audiounit.cpp',

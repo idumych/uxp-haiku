@@ -67,6 +67,14 @@
 #endif
 #endif
 
+#if defined(__HAIKU__)
+// Haiku has neither getauxval() nor sched_getaffinity().
+#undef HAVE_GETAUXVAL
+#define HAVE_GETAUXVAL 0
+#undef HAVE_SCHED_GETAFFINITY
+#define HAVE_SCHED_GETAFFINITY 0
+#endif
+
 #include "config_override.h"
 
 #endif // MOZ_FFVPX_CONFIG_H

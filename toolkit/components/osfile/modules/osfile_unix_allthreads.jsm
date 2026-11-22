@@ -40,7 +40,8 @@ var Const = SharedAll.Constants.libc;
 
 // Open libc
 var libc = new SharedAll.Library("libc",
-                                 "libc.so", "libSystem.B.dylib", "a.out");
+                                 "libc.so", "libSystem.B.dylib", "libroot.so",
+                                 "a.out");
 exports.libc = libc;
 
 // Define declareFFI

@@ -81,6 +81,13 @@ this.AppConstants = Object.freeze({
   false,
 #endif
 
+  MOZ_WIDGET_HAIKU:
+#ifdef MOZ_WIDGET_HAIKU
+  true,
+#else
+  false,
+#endif
+
   XP_UNIX:
 #ifdef XP_UNIX
   true,
@@ -90,6 +97,9 @@ this.AppConstants = Object.freeze({
 
   platform:
 #ifdef MOZ_WIDGET_GTK
+  "linux",
+#elif MOZ_WIDGET_HAIKU
+  // Haiku uses the Linux themes and front-end code paths for now.
   "linux",
 #elif XP_WIN
   "win",

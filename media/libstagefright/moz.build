@@ -32,6 +32,10 @@ elif CONFIG['OS_TARGET'] in ('DragonFly', 'FreeBSD', 'OpenBSD', 'NetBSD',
     if CONFIG['OS_TARGET'] != 'kFreeBSD':
         DEFINES['off64_t'] = 'off_t'
         LOCAL_INCLUDES += [ 'ports/bsd/include' ]
+elif CONFIG['OS_TARGET'] == 'Haiku':
+    # Haiku's off_t is 64-bit and there is no off64_t.
+    DEFINES['HAVE_SYS_UIO_H'] = True
+    DEFINES['off64_t'] = 'off_t'
 else:
     DEFINES['HAVE_SYS_UIO_H'] = True
 
