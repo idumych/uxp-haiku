@@ -7,6 +7,10 @@ EXPORTS += [
     'nsWindow.h',
 ]
 
+EXPORTS.mozilla.widget += [
+    'HaikuRemote.h',
+]
+
 # The Be API headers don't mix with unified builds (and need RTTI for
 # dynamic_cast in BLooper/BHandler code), so build each file alone.
 SOURCES += [
