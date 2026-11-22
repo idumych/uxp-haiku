@@ -16,6 +16,8 @@ static const uint32 kMsgGeckoInvalidate = 'GINV';
 // them to the Gecko main thread.
 class HaikuWindow : public BWindow {
  public:
+  using BWindow::Zoom;
+
   HaikuWindow(BRect aFrame, const char* aTitle, window_look aLook,
               window_feel aFeel, uint32 aFlags, nsWindow* aGeckoWindow);
 

@@ -6,6 +6,7 @@
 #ifndef nsClipboard_h_
 #define nsClipboard_h_
 
+#include "nsCOMPtr.h"
 #include "nsBaseClipboard.h"
 
 class nsClipboard final : public nsBaseClipboard
