@@ -78,6 +78,10 @@
 #include "mozilla/dom/EncodingUtils.h"
 #include "mozilla/dom/ContentParent.h"
 
+#ifdef XP_HAIKU
+#include <FindDirectory.h>
+#endif
+
 using mozilla::dom::ContentParent;
 using mozilla::dom::EncodingUtils;
 
@@ -357,6 +361,32 @@ mozHunspell::LoadDictionaryList(bool aNotifyChildProcesses)
       LoadDictionariesFromDir(appDir);
     }
   }
+
+#ifdef XP_HAIKU
+  // Haiku's dictionary packages (myspell_*) install into
+  // /boot/system/data/hunspell; users can add their own under
+  // ~/config/[non-packaged/]data/hunspell. Load system dirs first so the
+  // user's dictionaries override them.
+  static const directory_which kHaikuDataDirs[] = {
+    B_SYSTEM_DATA_DIRECTORY,
+    B_SYSTEM_NONPACKAGED_DATA_DIRECTORY,
+    B_USER_DATA_DIRECTORY,
+    B_USER_NONPACKAGED_DATA_DIRECTORY,
+  };
+  for (directory_which which : kHaikuDataDirs) {
+    char path[B_PATH_NAME_LENGTH];
+    if (find_directory(which, -1, false, path, sizeof(path)) != B_OK) {
+      continue;
+    }
+    nsCOMPtr<nsIFile> dir;
+    rv = NS_NewNativeLocalFile(nsDependentCString(path), true,
+                               getter_AddRefs(dir));
+    if (NS_SUCCEEDED(rv) &&
+        NS_SUCCEEDED(dir->AppendNative(NS_LITERAL_CSTRING("hunspell")))) {
+      LoadDictionariesFromDir(dir);
+    }
+  }
+#endif
 
   // find dictionaries in DICPATH
   char* dicEnv = PR_GetEnv("DICPATH");
