@@ -85,7 +85,8 @@ static already_AddRefed<nsIInputStream> GetClipboardImage(BMessage* aClip)
   if (aClip->FindMessage("image/bitmap", &archive) != B_OK) {
     return nullptr;
   }
-  BBitmap* bitmap = dynamic_cast<BBitmap*>(BBitmap::Instantiate(&archive));
+  // BBitmap::Instantiate() checks the archive is a BBitmap.
+  BBitmap* bitmap = static_cast<BBitmap*>(BBitmap::Instantiate(&archive));
   BMallocIO png;
   if (!bitmap || !BitmapToPNG(bitmap, png)) {
     return nullptr;

@@ -43,6 +43,5 @@ LOCAL_INCLUDES += [
     '/widget',
 ]
 
-for f in ('HaikuApplication.cpp', 'HaikuView.cpp', 'nsClipboard.cpp',
-          'nsFilePicker.cpp'):
+for f in ('HaikuApplication.cpp', 'HaikuView.cpp', 'nsFilePicker.cpp'):
     SOURCES[f].flags += ['-frtti']

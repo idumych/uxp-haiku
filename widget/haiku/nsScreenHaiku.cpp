@@ -70,7 +70,10 @@ void nsScreenManagerHaiku::RefreshScreens() {
         existing = s;
       }
     }
-    screens.AppendElement(existing ? existing : new nsScreenHaiku(id));
+    if (!existing) {
+      existing = new nsScreenHaiku(id);
+    }
+    screens.AppendElement(existing);
     if (screen.SetToNext() != B_OK) {
       break;
     }
