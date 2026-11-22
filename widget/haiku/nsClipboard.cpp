@@ -3,9 +3,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* Haiku clipboard: text/unicode and text/html via be_clipboard. The system
- * clipboard stores text as UTF-8 under the "text/plain" and "text/html"
- * B_MIME_TYPE fields. Images are not supported yet. */
+/* Haiku clipboard via be_clipboard. Text is stored as UTF-8 under the
+ * "text/plain" and "text/html" B_MIME_TYPE fields. Images are stored both as
+ * PNG data ("image/png", B_MIME_TYPE) and as an archived BBitmap
+ * ("image/bitmap", like ShowImage does); either is read back as PNG. */
 
 #include "nsClipboard.h"
 
@@ -20,6 +21,80 @@
 #include "nsXPIDLString.h"
 
 #include <string.h>
+
+#include "imgIContainer.h"
+#include "nsIInputStream.h"
+#include "nsStringStream.h"
+
+#pragma GCC visibility push(default)
+#include <translation/TranslatorFormats.h>
+#pragma GCC visibility pop
+
+using namespace mozilla::widget;
+
+static bool IsImageFlavor(const char* aFlavor)
+{
+  return !strcmp(aFlavor, kPNGImageMime) || !strcmp(aFlavor, kJPEGImageMime) ||
+         !strcmp(aFlavor, kJPGImageMime) || !strcmp(aFlavor, kGIFImageMime) ||
+         !strcmp(aFlavor, kNativeImageMime);
+}
+
+// Translates a BBitmap to PNG data with the Translation Kit.
+static bool BitmapToPNG(BBitmap* aBitmap, BMallocIO& aOut)
+{
+  BBitmapStream stream(aBitmap);  // takes ownership
+  bool ok = BTranslatorRoster::Default()->Translate(&stream, nullptr, nullptr,
+                                                    &aOut, B_PNG_FORMAT) == B_OK;
+  BBitmap* detached = nullptr;
+  stream.DetachBitmap(&detached);
+  delete detached;
+  return ok && aOut.BufferLength() > 0;
+}
+
+static void AddImageToClipboard(BMessage* aClip, imgIContainer* aImage)
+{
+  BBitmap* bitmap = CreateBBitmapFromImage(aImage);
+  if (!bitmap) {
+    return;
+  }
+  BMessage archive;
+  if (bitmap->Archive(&archive) == B_OK) {
+    aClip->AddMessage("image/bitmap", &archive);
+  }
+  BMallocIO png;
+  if (BitmapToPNG(bitmap, png)) {  // consumes bitmap
+    aClip->AddData("image/png", B_MIME_TYPE, png.Buffer(), png.BufferLength());
+  }
+}
+
+// Returns PNG bytes from the clipboard as an input stream.
+static already_AddRefed<nsIInputStream> GetClipboardImage(BMessage* aClip)
+{
+  const void* data = nullptr;
+  ssize_t len = 0;
+  nsCOMPtr<nsIInputStream> stream;
+  if (aClip->FindData("image/png", B_MIME_TYPE, &data, &len) == B_OK &&
+      len > 0) {
+    NS_NewByteInputStream(getter_AddRefs(stream),
+                          static_cast<const char*>(data), len,
+                          NS_ASSIGNMENT_COPY);
+    return stream.forget();
+  }
+
+  BMessage archive;
+  if (aClip->FindMessage("image/bitmap", &archive) != B_OK) {
+    return nullptr;
+  }
+  BBitmap* bitmap = dynamic_cast<BBitmap*>(BBitmap::Instantiate(&archive));
+  BMallocIO png;
+  if (!bitmap || !BitmapToPNG(bitmap, png)) {
+    return nullptr;
+  }
+  NS_NewByteInputStream(getter_AddRefs(stream),
+                        static_cast<const char*>(png.Buffer()),
+                        png.BufferLength(), NS_ASSIGNMENT_COPY);
+  return stream.forget();
+}
 
 // Gecko flavor -> Haiku clipboard MIME field
 static const char*
@@ -75,6 +150,22 @@ nsClipboard::SetNativeClipboardData(int32_t aWhichClipboard)
     }
     nsXPIDLCString flavor;
     flavorWrapper->ToString(getter_Copies(flavor));
+
+    if (!strcmp(flavor.get(), kNativeImageMime)) {
+      nsCOMPtr<nsISupports> data;
+      uint32_t len = 0;
+      mTransferable->GetTransferData(flavor.get(), getter_AddRefs(data), &len);
+      nsCOMPtr<nsISupportsInterfacePointer> ptr = do_QueryInterface(data);
+      nsCOMPtr<nsISupports> primitive;
+      if (ptr) {
+        ptr->GetData(getter_AddRefs(primitive));
+      }
+      nsCOMPtr<imgIContainer> image = do_QueryInterface(primitive);
+      if (image) {
+        AddImageToClipboard(clip, image);
+      }
+      continue;
+    }
 
     const char* haikuMime = HaikuMimeForFlavor(flavor.get());
     if (!haikuMime || (wroteText && !strcmp(haikuMime, "text/plain"))) {
@@ -148,6 +239,19 @@ nsClipboard::GetNativeClipboardData(nsITransferable* aTransferable,
     nsXPIDLCString flavor;
     flavorWrapper->ToString(getter_Copies(flavor));
 
+    if (IsImageFlavor(flavor.get()) &&
+        strcmp(flavor.get(), kNativeImageMime)) {
+      nsCOMPtr<nsIInputStream> stream = GetClipboardImage(clip);
+      if (stream) {
+        // The data is PNG whatever image flavor was asked for; imagelib
+        // sniffs the format.
+        aTransferable->SetTransferData(flavor.get(), stream,
+                                       sizeof(nsIInputStream*));
+        break;
+      }
+      continue;
+    }
+
     const char* haikuMime = HaikuMimeForFlavor(flavor.get());
     if (!haikuMime) {
       continue;
@@ -202,6 +306,10 @@ nsClipboard::HasDataMatchingFlavors(const char** aFlavorList,
     for (uint32_t i = 0; i < aLength && !*aResult; ++i) {
       const char* haikuMime = HaikuMimeForFlavor(aFlavorList[i]);
       if (haikuMime && clip->HasData(haikuMime, B_MIME_TYPE)) {
+        *aResult = true;
+      } else if (IsImageFlavor(aFlavorList[i]) &&
+                 (clip->HasData("image/png", B_MIME_TYPE) ||
+                  clip->HasMessage("image/bitmap"))) {
         *aResult = true;
       }
     }
