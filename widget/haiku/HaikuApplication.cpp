@@ -7,6 +7,10 @@
 #include "HaikuRemote.h"
 
 #include <cstdio>
+#include <kernel/image.h>
+#include <storage/AppFileInfo.h>
+#include <storage/File.h>
+#include <storage/Resources.h>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -23,10 +27,57 @@ namespace mozilla::widget {
 HaikuApplication* HaikuApplication::sInstance = nullptr;
 sem_id HaikuApplication::sGeckoTerminatedSem = B_BAD_SEM_ID;
 
-// Must match app_signature in basilisk/app/haiku/Basilisk.rdef.in.
-static const char kAppSignature[] = "application/x-vnd.Basilisk";
 // This instance's signature (see HaikuForwardToRunningInstance).
-static char sSignature[B_MIME_TYPE_LENGTH] = "application/x-vnd.Basilisk";
+static char sSignature[B_MIME_TYPE_LENGTH];
+
+// The executable's own resources: app_signature and the UXP:APP_NAME string.
+static void ReadAppIdentity(char* aSignature, char* aName, size_t aNameSize) {
+  strlcpy(aSignature, "application/x-vnd.UXP-browser", B_MIME_TYPE_LENGTH);
+  strlcpy(aName, "Web browser", aNameSize);
+  image_info info;
+  int32 cookie = 0;
+  while (get_next_image_info(B_CURRENT_TEAM, &cookie, &info) == B_OK) {
+    if (info.type != B_APP_IMAGE) {
+      continue;
+    }
+    BFile file(info.name, B_READ_ONLY);
+    BAppFileInfo appInfo(&file);
+    if (appInfo.InitCheck() == B_OK) {
+      appInfo.GetSignature(aSignature);
+    }
+    BResources resources(&file);
+    size_t size = 0;
+    const void* data = resources.LoadResource(B_STRING_TYPE, "UXP:APP_NAME",
+                                              &size);
+    if (data && size > 0) {
+      strlcpy(aName, static_cast<const char*>(data),
+              size < aNameSize ? size + 1 : aNameSize);
+    }
+    break;
+  }
+}
+
+static char sBaseSignature[B_MIME_TYPE_LENGTH];
+static char sAppName[64];
+
+static void EnsureAppIdentity() {
+  if (!sBaseSignature[0]) {
+    ReadAppIdentity(sBaseSignature, sAppName, sizeof(sAppName));
+    if (!sSignature[0]) {
+      strlcpy(sSignature, sBaseSignature, sizeof(sSignature));
+    }
+  }
+}
+
+const char* HaikuAppSignature() {
+  EnsureAppIdentity();
+  return sBaseSignature;
+}
+
+const char* HaikuAppName() {
+  EnsureAppIdentity();
+  return sAppName;
+}
 static sem_id sInitSem = B_BAD_SEM_ID;
 // Set once ReadyToRun has run; argv messages before that are our own.
 static bool sReady = false;
@@ -58,6 +109,7 @@ static bool HasArg(int aArgc, char** aArgv, const char* aName) {
 }
 
 bool HaikuForwardToRunningInstance(int aArgc, char** aArgv) {
+  EnsureAppIdentity();
   const char* profile = ProfileArg(aArgc, aArgv);
   const char* noRemote = getenv("MOZ_NO_REMOTE");
   const char* newInstance = getenv("MOZ_NEW_INSTANCE");
@@ -71,10 +123,11 @@ bool HaikuForwardToRunningInstance(int aArgc, char** aArgv) {
     for (const char* c = profile; *c; ++c) {
       hash = hash * 33 + uint8_t(*c);
     }
-    snprintf(sSignature, sizeof(sSignature), "%s-%08x", kAppSignature, hash);
+    snprintf(sSignature, sizeof(sSignature), "%s-%08x", HaikuAppSignature(),
+             hash);
   } else if (separate) {
     // Never shares: a signature nobody else uses.
-    snprintf(sSignature, sizeof(sSignature), "%s-%d", kAppSignature,
+    snprintf(sSignature, sizeof(sSignature), "%s-%d", HaikuAppSignature(),
              int(getpid()));
     return false;
   } else if (HasArg(aArgc, aArgv, "ProfileManager")) {
@@ -151,6 +204,7 @@ void HaikuApplication::NotifyGeckoExited() {
 }
 
 int32 HaikuApplication::AppThreadFunc(void*) {
+  EnsureAppIdentity();
   auto* app = new HaikuApplication(sSignature);
   sInstance = app;
   app->mThread = find_thread(nullptr);

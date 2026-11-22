@@ -200,7 +200,8 @@ nsDeviceContextSpecHaiku::EndDocument() {
 
   mozilla::widget::EnsureHaikuApplication();
   NS_ConvertUTF16toUTF8 title(mTitle);
-  BPrintJob job(title.IsEmpty() ? "Basilisk" : title.get());
+  BPrintJob job(title.IsEmpty() ? mozilla::widget::HaikuAppName()
+                                : title.get());
 
   // Haiku's job dialog: printer, copies, page range.
   if (job.ConfigJob() != B_OK) {
