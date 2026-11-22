@@ -105,6 +105,13 @@ typedef intptr_t EGLNativeDisplayType;
 typedef intptr_t EGLNativeWindowType;
 typedef intptr_t EGLNativePixmapType;
 
+#elif defined(__HAIKU__)
+
+/* Haiku: no native EGL window system binding (matches upstream Khronos) */
+typedef void    *EGLNativeDisplayType;
+typedef intptr_t EGLNativePixmapType;
+typedef intptr_t EGLNativeWindowType;
+
 #elif defined(__unix__)
 
 /* X11 (tentative)  */

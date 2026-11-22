@@ -25,6 +25,7 @@
       defined(__NetBSD__) || \
       defined(__DragonFly__) || \
       defined(__sun) || \
+      defined(__HAIKU__) || \
       defined(__GLIBC__) || \
       defined(__GNU__) || \
       defined(__QNX__)
