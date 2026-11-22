@@ -17,6 +17,15 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 
+#ifdef XP_HAIKU
+#pragma GCC visibility push(default)
+#include <storage/Mime.h>
+#include <storage/Node.h>
+#include <storage/NodeInfo.h>
+#include <support/TypeConstants.h>
+#pragma GCC visibility pop
+#endif
+
 #define PREF_BDM_ADDTORECENTDOCS "browser.download.manager.addToRecentDocs"
 
 #ifdef XP_WIN
@@ -94,9 +103,51 @@ CFURLRef CreateCFURLFromNSIURI(nsIURI *aURI) {
 }
 #endif
 
+#ifdef XP_HAIKU
+// Haiku: give the file its MIME type (BEOS:TYPE) and remember where it came
+// from in META:url, as WebPositive does.
+static void
+SetHaikuDownloadAttributes(nsIURI* aSource, nsIFile* aTarget,
+                           const nsACString& aContentType, bool aIsPrivate)
+{
+  nsAutoCString path;
+  if (!aTarget || NS_FAILED(aTarget->GetNativePath(path))) {
+    return;
+  }
+  BNode node(path.get());
+  if (node.InitCheck() != B_OK) {
+    return;
+  }
+
+  nsAutoCString spec;
+  // Private downloads don't record their origin.
+  if (!aIsPrivate && aSource && NS_SUCCEEDED(aSource->GetSpec(spec)) &&
+      !spec.IsEmpty()) {
+    node.WriteAttr("META:url", B_STRING_TYPE, 0, spec.get(),
+                   spec.Length() + 1);
+  }
+
+  // Trust a specific type from the server; otherwise let the registrar
+  // sniff the file (by content and extension).
+  bool useServerType = !aContentType.IsEmpty() &&
+    aContentType.Length() < B_MIME_TYPE_LENGTH &&
+    !aContentType.EqualsLiteral("application/octet-stream") &&
+    !aContentType.EqualsLiteral("application/x-unknown-content-type") &&
+    !aContentType.EqualsLiteral("binary/octet-stream");
+  BNodeInfo info(&node);
+  if (!useServerType || info.InitCheck() != B_OK ||
+      info.SetType(PromiseFlatCString(aContentType).get()) != B_OK) {
+    update_mime_info(path.get(), false, true, false);
+  }
+}
+#endif
+
 nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer, nsIFile* aTarget,
                                         const nsACString& aContentType, bool aIsPrivate)
 {
+#ifdef XP_HAIKU
+  SetHaikuDownloadAttributes(aSource, aTarget, aContentType, aIsPrivate);
+#endif
 #if defined(XP_WIN) || defined(XP_MACOSX) || defined(MOZ_WIDGET_GTK)
 
   nsAutoString path;
