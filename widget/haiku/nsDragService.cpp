@@ -17,6 +17,7 @@
 #include "nsIPresShell.h"
 #include "nsISupportsPrimitives.h"
 #include "nsITransferable.h"
+#include "imgIContainer.h"
 #include "nsIWidget.h"
 #include "nsNetUtil.h"
 #include "nsPrimitiveHelpers.h"
@@ -392,11 +393,77 @@ nsDragService::InvokeDragSessionImpl(nsIArray* aTransferableArray,
     }
   }
 
+  // Offer Tracker a file through the negotiated drag protocol
+  // (B_COPY_TARGET): an image as a PNG file, or a link as a bookmark file.
+  // HaikuView writes the file when Tracker replies with the target folder;
+  // everything it needs travels in "be:originator-data".
+  nsCOMPtr<nsITransferable> first = do_QueryElementAt(aTransferableArray, 0);
+  if (first) {
+    BMessage origin;
+    nsAutoString name;
+    GetTransferString(first, kFilePromiseDestFilename, name);
+
+    nsCOMPtr<nsISupports> data;
+    uint32_t len = 0;
+    nsCOMPtr<imgIContainer> image;
+    if (NS_SUCCEEDED(first->GetTransferData(kNativeImageMime,
+                                            getter_AddRefs(data), &len))) {
+      nsCOMPtr<nsISupportsInterfacePointer> ptr = do_QueryInterface(data);
+      nsCOMPtr<nsISupports> primitive;
+      if (ptr) {
+        ptr->GetData(getter_AddRefs(primitive));
+      }
+      image = do_QueryInterface(primitive ? primitive : data);
+    }
+
+    BMallocIO png;
+    BBitmap* bitmap = image ? CreateBBitmapFromImage(image) : nullptr;
+    if (bitmap && EncodeBitmapAsPNG(bitmap, png)) {
+      origin.AddData("image/png", B_MIME_TYPE, png.Buffer(),
+                     png.BufferLength());
+      msg.AddString("be:filetypes", "image/png");
+      msg.AddString("be:type_descriptions", "PNG image");
+      if (name.IsEmpty()) {
+        name.AssignLiteral("image.png");
+      }
+    } else {
+      nsAutoString urlAndTitle;
+      if (GetTransferString(first, kURLMime, urlAndTitle)) {
+        int32_t nl = urlAndTitle.FindChar('\n');
+        nsAutoString url(nl >= 0 ? nsAutoString(Substring(urlAndTitle, 0, nl))
+                                 : urlAndTitle);
+        nsAutoString title(nl >= 0 ? nsAutoString(Substring(urlAndTitle, nl + 1))
+                                   : url);
+        origin.AddString("url", NS_ConvertUTF16toUTF8(url).get());
+        origin.AddString("title", NS_ConvertUTF16toUTF8(title).get());
+        msg.AddString("be:filetypes", "application/x-vnd.Be-bookmark");
+        msg.AddString("be:type_descriptions", "Bookmark");
+        if (name.IsEmpty()) {
+          name = title;
+        }
+      }
+    }
+
+    if (!origin.IsEmpty()) {
+      // File names can't contain '/'.
+      name.ReplaceChar('/', '-');
+      if (name.IsEmpty()) {
+        name.AssignLiteral("Untitled");
+      }
+      msg.AddString("be:types", B_FILE_MIME_TYPE);
+      msg.AddString("be:clip_name", NS_ConvertUTF16toUTF8(name).get());
+      msg.AddMessage("be:originator-data", &origin);
+      msg.AddInt32("be:actions", B_COPY_TARGET);
+    }
+  }
+
   if (msg.IsEmpty()) {
     return NS_ERROR_FAILURE;
   }
-  msg.AddInt32("be:actions", (aActionType & DRAGDROP_ACTION_MOVE)
-                                 ? B_MOVE_TARGET : B_COPY_TARGET);
+  if (!msg.HasInt32("be:actions")) {
+    msg.AddInt32("be:actions", (aActionType & DRAGDROP_ACTION_MOVE)
+                                   ? B_MOVE_TARGET : B_COPY_TARGET);
+  }
 
   mSourceDataItems = aTransferableArray;
 
@@ -411,8 +478,9 @@ nsDragService::InvokeDragSessionImpl(nsIArray* aTransferableArray,
     BPoint where;
     uint32 buttons = 0;
     view->GetMouse(&where, &buttons, false);
+    // Replies (B_COPY_TARGET) go to the view.
     view->DragMessage(&msg, BRect(where.x - 16, where.y - 16, where.x + 16,
-                                  where.y + 16));
+                                  where.y + 16), view);
     window->Unlock();
   }
   return NS_OK;

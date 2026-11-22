@@ -157,6 +157,9 @@ void HaikuView::MessageReceived(BMessage* aMessage) {
   }
 
   switch (aMessage->what) {
+    case B_COPY_TARGET:
+      WriteCopyTarget(aMessage);
+      break;
     case B_INPUT_METHOD_EVENT:
       if (mGeckoWindow) {
         mGeckoWindow->OnHaikuInputMethodEvent(aMessage);
@@ -183,6 +186,43 @@ void HaikuView::MessageReceived(BMessage* aMessage) {
     default:
       BView::MessageReceived(aMessage);
       break;
+  }
+}
+
+// Tracker accepted our drag (negotiated drag protocol): it tells us the
+// folder ("directory") and file name ("name"); write the file there from the
+// data we put in "be:originator-data".
+void HaikuView::WriteCopyTarget(BMessage* aMessage) {
+  entry_ref dirRef;
+  const char* name = nullptr;
+  BMessage origin;
+  if (aMessage->FindRef("directory", &dirRef) != B_OK ||
+      aMessage->FindString("name", &name) != B_OK || !name ||
+      aMessage->FindMessage("be:originator-data", &origin) != B_OK) {
+    return;
+  }
+
+  BDirectory dir(&dirRef);
+  BFile file(&dir, name, B_READ_WRITE | B_CREATE_FILE | B_ERASE_FILE);
+  if (file.InitCheck() != B_OK) {
+    return;
+  }
+
+  const void* data = nullptr;
+  ssize_t size = 0;
+  const char* url = nullptr;
+  if (origin.FindData("image/png", B_MIME_TYPE, &data, &size) == B_OK) {
+    file.Write(data, size);
+    BNodeInfo(&file).SetType("image/png");
+  } else if (origin.FindString("url", &url) == B_OK && url) {
+    const char* title = nullptr;
+    origin.FindString("title", &title);
+    BNodeInfo(&file).SetType("application/x-vnd.Be-bookmark");
+    file.WriteAttr("META:url", B_STRING_TYPE, 0, url, strlen(url) + 1);
+    if (title) {
+      file.WriteAttr("META:title", B_STRING_TYPE, 0, title,
+                     strlen(title) + 1);
+    }
   }
 }
 

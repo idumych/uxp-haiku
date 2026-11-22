@@ -52,6 +52,7 @@ class HaikuView : public BView {
 
  private:
   void GetCurrentMouseState(int32& aButtons, int32& aModifiers);
+  void WriteCopyTarget(BMessage* aMessage);
 
   nsWindow* mGeckoWindow;
   int32 mLastButtons = 0;

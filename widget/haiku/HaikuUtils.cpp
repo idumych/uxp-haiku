@@ -135,6 +135,16 @@ BBitmap* CreateBBitmapFromSurface(
   return bitmap;
 }
 
+bool EncodeBitmapAsPNG(BBitmap* aBitmap, BMallocIO& aOut) {
+  BBitmapStream stream(aBitmap);  // takes ownership
+  bool ok = BTranslatorRoster::Default()->Translate(
+                &stream, nullptr, nullptr, &aOut, 'PNG ') == B_OK;
+  BBitmap* detached = nullptr;
+  stream.DetachBitmap(&detached);
+  delete detached;
+  return ok && aOut.BufferLength() > 0;
+}
+
 BBitmap* CreateBBitmapFromImage(
     imgIContainer* aImage,
     float aAlphaMultiplier,

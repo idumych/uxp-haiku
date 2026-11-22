@@ -26,9 +26,6 @@
 #include "nsIInputStream.h"
 #include "nsStringStream.h"
 
-#pragma GCC visibility push(default)
-#include <translation/TranslatorFormats.h>
-#pragma GCC visibility pop
 
 using namespace mozilla::widget;
 
@@ -37,18 +34,6 @@ static bool IsImageFlavor(const char* aFlavor)
   return !strcmp(aFlavor, kPNGImageMime) || !strcmp(aFlavor, kJPEGImageMime) ||
          !strcmp(aFlavor, kJPGImageMime) || !strcmp(aFlavor, kGIFImageMime) ||
          !strcmp(aFlavor, kNativeImageMime);
-}
-
-// Translates a BBitmap to PNG data with the Translation Kit.
-static bool BitmapToPNG(BBitmap* aBitmap, BMallocIO& aOut)
-{
-  BBitmapStream stream(aBitmap);  // takes ownership
-  bool ok = BTranslatorRoster::Default()->Translate(&stream, nullptr, nullptr,
-                                                    &aOut, B_PNG_FORMAT) == B_OK;
-  BBitmap* detached = nullptr;
-  stream.DetachBitmap(&detached);
-  delete detached;
-  return ok && aOut.BufferLength() > 0;
 }
 
 static void AddImageToClipboard(BMessage* aClip, imgIContainer* aImage)
@@ -62,7 +47,7 @@ static void AddImageToClipboard(BMessage* aClip, imgIContainer* aImage)
     aClip->AddMessage("image/bitmap", &archive);
   }
   BMallocIO png;
-  if (BitmapToPNG(bitmap, png)) {  // consumes bitmap
+  if (EncodeBitmapAsPNG(bitmap, png)) {  // consumes bitmap
     aClip->AddData("image/png", B_MIME_TYPE, png.Buffer(), png.BufferLength());
   }
 }
@@ -88,7 +73,7 @@ static already_AddRefed<nsIInputStream> GetClipboardImage(BMessage* aClip)
   // BBitmap::Instantiate() checks the archive is a BBitmap.
   BBitmap* bitmap = static_cast<BBitmap*>(BBitmap::Instantiate(&archive));
   BMallocIO png;
-  if (!bitmap || !BitmapToPNG(bitmap, png)) {
+  if (!bitmap || !EncodeBitmapAsPNG(bitmap, png)) {
     return nullptr;
   }
   NS_NewByteInputStream(getter_AddRefs(stream),
