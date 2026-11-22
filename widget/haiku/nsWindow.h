@@ -75,6 +75,7 @@ class nsWindow final : public nsBaseWidget {
   NS_IMETHOD_(InputContext) GetInputContext() override;
   NS_IMETHOD_(TextEventDispatcherListener*)
       GetNativeTextEventDispatcherListener() override;
+  nsIMEUpdatePreference GetIMEUpdatePreference() override;
   NS_IMETHOD HideWindowChrome(bool aShouldHide) override { return NS_OK; }
   void SetSizeConstraints(const SizeConstraints& aConstraints) override;
   float GetDPI() override;
@@ -107,6 +108,15 @@ class nsWindow final : public nsBaseWidget {
                             int32_t aModifiers);
   void OnHaikuWheelEvent(float aX, float aY, float aDeltaX, float aDeltaY,
                          int32_t aModifiers);
+  enum HaikuDragPhase {
+    eHaikuDragEnter,
+    eHaikuDragOver,
+    eHaikuDragExit,
+    eHaikuDrop
+  };
+  void OnHaikuDrag(HaikuDragPhase aPhase, float aX, float aY,
+                   const BMessage* aMessage, int32_t aModifiers);
+  void OnHaikuInputMethodEvent(BMessage* aMessage);
   void OnHaikuKeyEvent(bool aIsDown, int32_t aKey, int32_t aRawChar,
                        int32_t aModifiers, const char* aBytes,
                        int32_t aNumBytes, bool aIsRepeat);

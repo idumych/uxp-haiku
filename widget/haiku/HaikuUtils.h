@@ -63,6 +63,10 @@ BBitmap* CreateBBitmapFromSurface(
     int32_t aMaxWidth = -1,
     int32_t aMaxHeight = -1);
 
+// Encodes aBitmap as PNG with the Translation Kit. Takes ownership of
+// aBitmap. Returns false on failure.
+bool EncodeBitmapAsPNG(BBitmap* aBitmap, BMallocIO& aOut);
+
 BBitmap* CreateBBitmapFromImage(
     imgIContainer* aImage,
     float aAlphaMultiplier = 1.0f,

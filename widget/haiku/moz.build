@@ -31,6 +31,11 @@ SOURCES += [
     'nsWindow.cpp',
 ]
 
+if CONFIG['NS_PRINTING']:
+    SOURCES += [
+        'nsDeviceContextSpecHaiku.cpp',
+    ]
+
 include('/ipc/chromium/chromium-config.mozbuild')
 
 FINAL_LIBRARY = 'xul'
@@ -45,3 +50,5 @@ LOCAL_INCLUDES += [
 
 for f in ('HaikuApplication.cpp', 'HaikuView.cpp', 'nsFilePicker.cpp'):
     SOURCES[f].flags += ['-frtti']
+
+CXXFLAGS += CONFIG['MOZ_CAIRO_CFLAGS']

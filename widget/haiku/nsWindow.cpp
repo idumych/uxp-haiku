@@ -22,6 +22,7 @@
 #include "nsIDOMWheelEvent.h"
 #include "nsIRollupListener.h"
 #include "nsThreadUtils.h"
+#include "nsDragService.h"
 
 using namespace mozilla;
 using namespace mozilla::gfx;
@@ -93,7 +94,7 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
 
   mParent = aParent;
   mBounds = aRect;
-  mTextListener = new HaikuTextInputListener();
+  mTextListener = new HaikuTextInputListener(this);
 
   if (mWindowType == eWindowType_child || mWindowType == eWindowType_plugin ||
       mWindowType == eWindowType_plugin_ipc_chrome ||
@@ -184,6 +185,9 @@ void nsWindow::Destroy() {
     mView = nullptr;
   }
   mBuffer.Destroy();
+  if (mTextListener) {
+    mTextListener->Detach();
+  }
 
   nsBaseWidget::OnDestroy();
   nsBaseWidget::Destroy();
@@ -569,6 +573,18 @@ nsWindow::GetNativeTextEventDispatcherListener() {
   return mTextListener;
 }
 
+nsIMEUpdatePreference nsWindow::GetIMEUpdatePreference() {
+  // The input method asks for the caret position (B_INPUT_METHOD_LOCATION_
+  // REQUEST), so keep it up to date.
+  return nsIMEUpdatePreference(nsIMEUpdatePreference::NOTIFY_POSITION_CHANGE);
+}
+
+void nsWindow::OnHaikuInputMethodEvent(BMessage* aMessage) {
+  if (mTextListener) {
+    mTextListener->ProcessInputMethodEvent(aMessage);
+  }
+}
+
 void nsWindow::SetSizeConstraints(const SizeConstraints& aConstraints) {
   nsBaseWidget::SetSizeConstraints(aConstraints);
   if (!mWindow || mIsPopup) {
@@ -744,6 +760,12 @@ void nsWindow::OnHaikuMouseUp(float aX, float aY, int32_t aReleasedButton,
   RefPtr<nsWindow> self(this);
   NS_DispatchToMainThread(NS_NewRunnableFunction(
       [self, aX, aY, aReleasedButton, aRemainingButtons, aModifiers]() {
+        // The button went up in the window that started our outgoing drag:
+        // the drag is over (dropped elsewhere, or handled by OnHaikuDrag).
+        nsDragService* dragService = nsDragService::GetInstance();
+        if (dragService && dragService->IsOutgoingDrag()) {
+          dragService->EndDragSession(true);
+        }
         self->DispatchMouseEvent(eMouseUp, aX, aY,
                                  GetGeckoButton(aReleasedButton),
                                  aRemainingButtons, 1, aModifiers);
@@ -797,4 +819,56 @@ void nsWindow::OnHaikuKeyEvent(bool aIsDown, int32_t aKey, int32_t aRawChar,
                                int32_t aNumBytes, bool aIsRepeat) {
   HaikuKeyboard::DispatchKeyEvent(this, aIsDown, aKey, aRawChar, aModifiers,
                                   aBytes, aNumBytes, aIsRepeat);
+}
+
+void nsWindow::OnHaikuDrag(HaikuDragPhase aPhase, float aX, float aY,
+                           const BMessage* aMessage, int32_t aModifiers) {
+  RefPtr<nsWindow> self(this);
+  // Copy the message: the original belongs to the BWindow thread.
+  BMessage* copy = aMessage ? new BMessage(*aMessage) : nullptr;
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      [self, aPhase, aX, aY, copy, aModifiers]() {
+        UniquePtr<BMessage> msg(copy);
+        if (self->mOnDestroyCalled || !self->mWidgetListener) {
+          return;
+        }
+        RefPtr<nsDragService> dragService = nsDragService::GetInstance();
+        if (!dragService) {
+          return;
+        }
+        bool ours = dragService->IsOutgoingDrag();
+
+        nsCOMPtr<nsIDragSession> session;
+        dragService->GetCurrentSession(getter_AddRefs(session));
+        if (!session) {
+          if (aPhase == eHaikuDragExit) {
+            return;
+          }
+          dragService->StartDragSession();
+        }
+        if (!ours && msg) {
+          dragService->SetDragMessage(std::move(msg));
+        }
+
+        EventMessage message = eDragOver;
+        switch (aPhase) {
+          case eHaikuDragEnter: message = eDragEnter; break;
+          case eHaikuDragOver: message = eDragOver; break;
+          case eHaikuDragExit: message = eDragExit; break;
+          case eHaikuDrop: message = eDrop; break;
+        }
+
+        if (message == eDragOver) {
+          dragService->FireDragEventAtSource(eDrag);
+        }
+
+        WidgetDragEvent event(true, message, self);
+        event.mRefPoint = LayoutDeviceIntPoint(int32_t(aX), int32_t(aY));
+        event.mModifiers = GetGeckoModifiers(aModifiers);
+        self->DispatchInputEvent(&event);
+
+        if (aPhase == eHaikuDrop || (aPhase == eHaikuDragExit && !ours)) {
+          dragService->EndDragSession(aPhase == eHaikuDrop);
+        }
+      }));
 }

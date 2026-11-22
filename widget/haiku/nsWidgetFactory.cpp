@@ -23,6 +23,11 @@
 #include "nsWindow.h"
 #include "GfxInfo.h"
 #include "HaikuApplication.h"
+#ifdef NS_PRINTING
+#include "nsDeviceContextSpecHaiku.h"
+#include "nsPrintOptionsImpl.h"
+#include "nsPrintSession.h"
+#endif
 
 using namespace mozilla;
 using namespace mozilla::widget;
@@ -40,6 +45,13 @@ NS_GENERIC_FACTORY_CONSTRUCTOR(nsScreenManagerHaiku)
 NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeThemeHaiku)
 NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsIdleServiceHaiku,
                                          nsIdleServiceHaiku::GetInstance)
+
+#ifdef NS_PRINTING
+NS_GENERIC_FACTORY_CONSTRUCTOR(nsDeviceContextSpecHaiku)
+NS_GENERIC_FACTORY_CONSTRUCTOR(nsPrinterEnumeratorHaiku)
+NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(nsPrintOptions, Init)
+NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(nsPrintSession, Init)
+#endif
 
 namespace mozilla {
 namespace widget {
@@ -61,6 +73,12 @@ NS_DEFINE_NAMED_CID(NS_BIDIKEYBOARD_CID);
 NS_DEFINE_NAMED_CID(NS_SCREENMANAGER_CID);
 NS_DEFINE_NAMED_CID(NS_IDLE_SERVICE_CID);
 NS_DEFINE_NAMED_CID(NS_GFXINFO_CID);
+#ifdef NS_PRINTING
+NS_DEFINE_NAMED_CID(NS_DEVICE_CONTEXT_SPEC_CID);
+NS_DEFINE_NAMED_CID(NS_PRINTER_ENUMERATOR_CID);
+NS_DEFINE_NAMED_CID(NS_PRINTSETTINGSSERVICE_CID);
+NS_DEFINE_NAMED_CID(NS_PRINTSESSION_CID);
+#endif
 NS_DEFINE_NAMED_CID(NS_THEMERENDERER_CID);
 
 static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
@@ -86,6 +104,14 @@ static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
      Module::MAIN_PROCESS_ONLY},
     {&kNS_IDLE_SERVICE_CID, false, nullptr, nsIdleServiceHaikuConstructor},
     {&kNS_GFXINFO_CID, false, nullptr, mozilla::widget::GfxInfoConstructor},
+#ifdef NS_PRINTING
+    {&kNS_DEVICE_CONTEXT_SPEC_CID, false, nullptr,
+     nsDeviceContextSpecHaikuConstructor},
+    {&kNS_PRINTER_ENUMERATOR_CID, false, nullptr,
+     nsPrinterEnumeratorHaikuConstructor},
+    {&kNS_PRINTSETTINGSSERVICE_CID, false, nullptr, nsPrintOptionsConstructor},
+    {&kNS_PRINTSESSION_CID, false, nullptr, nsPrintSessionConstructor},
+#endif
     {&kNS_THEMERENDERER_CID, false, nullptr, nsNativeThemeHaikuConstructor},
     {nullptr}};
 
@@ -111,6 +137,13 @@ static const mozilla::Module::ContractIDEntry kWidgetContracts[] = {
      Module::MAIN_PROCESS_ONLY},
     {"@mozilla.org/widget/idleservice;1", &kNS_IDLE_SERVICE_CID},
     {"@mozilla.org/gfx/info;1", &kNS_GFXINFO_CID},
+#ifdef NS_PRINTING
+    {"@mozilla.org/gfx/devicecontextspec;1", &kNS_DEVICE_CONTEXT_SPEC_CID},
+    {"@mozilla.org/gfx/printerenumerator;1", &kNS_PRINTER_ENUMERATOR_CID},
+    {"@mozilla.org/gfx/printsettings-service;1",
+     &kNS_PRINTSETTINGSSERVICE_CID},
+    {"@mozilla.org/gfx/printsession;1", &kNS_PRINTSESSION_CID},
+#endif
     {"@mozilla.org/chrome/chrome-native-theme;1", &kNS_THEMERENDERER_CID},
     {nullptr}};
 

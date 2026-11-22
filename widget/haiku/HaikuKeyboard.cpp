@@ -21,31 +21,201 @@ namespace mozilla::widget {
 NS_IMPL_ISUPPORTS(HaikuTextInputListener, TextEventDispatcherListener,
                   nsISupportsWeakReference)
 
+HaikuTextInputListener::HaikuTextInputListener(nsWindow* aWindow)
+    : mWindow(aWindow),
+      mLock("HaikuTextInputListener::mLock"),
+      mCaretScreenPos(100, 100),
+      mCaretHeight(20.0f) {}
+
+void HaikuTextInputListener::Detach() { mWindow = nullptr; }
+
+void HaikuTextInputListener::UpdateCaretPosition() {
+  if (!mWindow) {
+    return;
+  }
+  WidgetQueryContentEvent queryCaret(true, eQueryCaretRect, mWindow);
+  WidgetQueryContentEvent::Options options;
+  options.mRelativeToInsertionPoint = true;
+  queryCaret.InitForQueryCaretRect(0, options);
+  nsEventStatus status;
+  mWindow->DispatchEvent(&queryCaret, status);
+  if (!queryCaret.mSucceeded) {
+    return;
+  }
+  LayoutDeviceIntRect r = queryCaret.mReply.mRect;
+  LayoutDeviceIntPoint origin = mWindow->WidgetToScreenOffset();
+  MutexAutoLock lock(mLock);
+  mCaretScreenPos = BPoint(r.x + origin.x, r.y + origin.y);
+  mCaretHeight = r.height > 0 ? float(r.height) : 20.0f;
+}
+
 NS_IMETHODIMP
 HaikuTextInputListener::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
                                   const IMENotification& aNotification) {
+  switch (aNotification.mMessage) {
+    case NOTIFY_IME_OF_POSITION_CHANGE:
+    case NOTIFY_IME_OF_SELECTION_CHANGE:
+    case NOTIFY_IME_OF_FOCUS:
+      UpdateCaretPosition();
+      break;
+    case NOTIFY_IME_OF_BLUR:
+    case REQUEST_TO_COMMIT_COMPOSITION:
+    case REQUEST_TO_CANCEL_COMPOSITION: {
+      // Tell the input method to stop; it then sends B_INPUT_METHOD_STOPPED.
+      MutexAutoLock lock(mLock);
+      if (mReplyTo.IsValid()) {
+        BMessage msg(B_INPUT_METHOD_EVENT);
+        msg.AddInt32("be:opcode", B_INPUT_METHOD_STOPPED);
+        mReplyTo.SendMessage(&msg);
+      }
+      break;
+    }
+    default:
+      break;
+  }
   return NS_OK;
 }
 
+void HaikuTextInputListener::ProcessInputMethodEvent(BMessage* aMessage) {
+  int32 opcode = -1;
+  if (aMessage->FindInt32("be:opcode", &opcode) != B_OK) {
+    return;
+  }
+
+  RefPtr<HaikuTextInputListener> self(this);
+  switch (opcode) {
+    case B_INPUT_METHOD_STARTED: {
+      BMessenger replyTo;
+      if (aMessage->FindMessenger("be:reply_to", &replyTo) == B_OK) {
+        MutexAutoLock lock(mLock);
+        mReplyTo = replyTo;
+      }
+      break;
+    }
+
+    case B_INPUT_METHOD_LOCATION_REQUEST: {
+      BMessage reply(B_INPUT_METHOD_EVENT);
+      reply.AddInt32("be:opcode", B_INPUT_METHOD_LOCATION_REQUEST);
+      MutexAutoLock lock(mLock);
+      // One location per character of the current string; we only know the
+      // caret, so repeat it.
+      for (int32 i = 0; i < 64; ++i) {
+        reply.AddPoint("be:location_reply", mCaretScreenPos);
+        reply.AddFloat("be:height_reply", mCaretHeight);
+      }
+      if (mReplyTo.IsValid()) {
+        mReplyTo.SendMessage(&reply);
+      }
+      break;
+    }
+
+    case B_INPUT_METHOD_CHANGED: {
+      const char* str = nullptr;
+      bool confirmed = false;
+      int32 selStart = -1, selEnd = -1;
+      aMessage->FindString("be:string", &str);
+      aMessage->FindBool("be:confirmed", &confirmed);
+      aMessage->FindInt32("be:selection", 0, &selStart);
+      aMessage->FindInt32("be:selection", 1, &selEnd);
+      nsCString text(str ? str : "");
+      NS_DispatchToMainThread(NS_NewRunnableFunction(
+          [self, text, confirmed, selStart, selEnd]() {
+            nsWindow* window = self->mWindow;
+            if (!window || window->Destroyed()) {
+              return;
+            }
+            RefPtr<TextEventDispatcher> dispatcher =
+                window->GetTextEventDispatcher();
+            if (!dispatcher ||
+                NS_FAILED(dispatcher->BeginNativeInputTransaction())) {
+              return;
+            }
+            nsEventStatus status = nsEventStatus_eIgnore;
+            NS_ConvertUTF8toUTF16 u16(text);
+            if (confirmed) {
+              if (!dispatcher->IsComposing()) {
+                if (u16.IsEmpty()) {
+                  return;
+                }
+                dispatcher->StartComposition(status);
+              }
+              dispatcher->CommitComposition(status, &u16);
+              return;
+            }
+            if (u16.IsEmpty()) {
+              if (dispatcher->IsComposing()) {
+                nsAutoString empty;
+                dispatcher->CommitComposition(status, &empty);
+              }
+              return;
+            }
+            if (!dispatcher->IsComposing()) {
+              dispatcher->StartComposition(status);
+            }
+            dispatcher->SetPendingCompositionString(u16);
+            dispatcher->AppendClauseToPendingComposition(
+                u16.Length(), TextRangeType::eRawClause);
+            if (selStart >= 0 && selStart <= selEnd) {
+              // be:selection is in bytes of the UTF-8 string.
+              uint32_t caret =
+                  NS_ConvertUTF8toUTF16(Substring(text, 0, selEnd)).Length();
+              dispatcher->SetCaretInPendingComposition(caret, 0);
+            }
+            dispatcher->FlushPendingComposition(status);
+          }));
+      break;
+    }
+
+    case B_INPUT_METHOD_STOPPED: {
+      {
+        MutexAutoLock lock(mLock);
+        mReplyTo = BMessenger();
+      }
+      NS_DispatchToMainThread(NS_NewRunnableFunction([self]() {
+        nsWindow* window = self->mWindow;
+        if (!window || window->Destroyed()) {
+          return;
+        }
+        RefPtr<TextEventDispatcher> dispatcher =
+            window->GetTextEventDispatcher();
+        if (dispatcher && dispatcher->IsComposing() &&
+            NS_SUCCEEDED(dispatcher->BeginNativeInputTransaction())) {
+          nsEventStatus status = nsEventStatus_eIgnore;
+          dispatcher->CommitComposition(status);
+        }
+      }));
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+// Haiku's modifier bits already follow the user's keymap (which physical key
+// is Command, Control or Option), so map the logical bits:
+//   Command (B_COMMAND_KEY, left Alt by default) -> Alt, the accelerator on
+//     Haiku (ui.key.accelKey = 18, see all.js);
+//   Control (B_CONTROL_KEY)                       -> Control;
+//   Option  (B_OPTION_KEY, used for alternate characters, like AltGr)
+//                                                 -> AltGraph, so text typed
+//     with it still reaches editors;
+//   Menu/Windows key: Haiku reports it as B_MENU_KEY; it isn't a modifier.
 mozilla::Modifiers GetGeckoModifiers(int32_t aHaikuModifiers) {
   mozilla::Modifiers mods = mozilla::MODIFIER_NONE;
 
-  if (aHaikuModifiers & (B_SHIFT_KEY | B_LEFT_SHIFT_KEY | B_RIGHT_SHIFT_KEY)) {
+  if (aHaikuModifiers & B_SHIFT_KEY) {
     mods |= mozilla::MODIFIER_SHIFT;
   }
-
-  if (aHaikuModifiers & (B_CONTROL_KEY | B_LEFT_CONTROL_KEY | B_RIGHT_CONTROL_KEY)) {
+  if (aHaikuModifiers & B_COMMAND_KEY) {
     mods |= mozilla::MODIFIER_ALT;
   }
-
-  if (aHaikuModifiers & (B_COMMAND_KEY | B_LEFT_COMMAND_KEY | B_RIGHT_COMMAND_KEY)) {
+  if (aHaikuModifiers & B_CONTROL_KEY) {
     mods |= mozilla::MODIFIER_CONTROL;
   }
-
-  if (aHaikuModifiers & (B_OPTION_KEY | B_LEFT_OPTION_KEY | B_RIGHT_OPTION_KEY)) {
+  if (aHaikuModifiers & B_OPTION_KEY) {
     mods |= mozilla::MODIFIER_ALTGRAPH;
   }
-
   if (aHaikuModifiers & B_CAPS_LOCK) {
     mods |= mozilla::MODIFIER_CAPSLOCK;
   }
@@ -55,7 +225,6 @@ mozilla::Modifiers GetGeckoModifiers(int32_t aHaikuModifiers) {
   if (aHaikuModifiers & B_SCROLL_LOCK) {
     mods |= mozilla::MODIFIER_SCROLLLOCK;
   }
-
   return mods;
 }
 
@@ -220,9 +389,19 @@ void HaikuKeyboard::DispatchKeyEvent(nsWindow* aWindow, bool aIsDown,
         }
         char16_t charCode = keyString.IsEmpty() ? 0 : keyString[0];
 
-        // With Ctrl/Command held Haiku reports control characters; use the
-        // unmodified character instead.
-        if (charCode > 0 && charCode < 0x20 && charCode != 0x09 &&
+        // With Control held Haiku reports control characters, and with
+        // Command held the keymap may give another character; use the
+        // unmodified key's character so shortcuts match. The event carries
+        // Control/Alt, so editors won't insert it as text.
+        bool shortcutModifier = (aModifiers & (B_COMMAND_KEY | B_CONTROL_KEY));
+        if (shortcutModifier && aRawChar >= 0x20 && aRawChar <= 0x7E) {
+          char16_t c = static_cast<char16_t>(aRawChar);
+          if (geckoModifiers & MODIFIER_SHIFT) {
+            c = std::toupper(c);
+          }
+          keyString.Assign(c);
+          charCode = c;
+        } else if (charCode > 0 && charCode < 0x20 && charCode != 0x09 &&
             charCode != 0x0a && charCode != 0x0d && charCode != 0x08 &&
             charCode != 0x1b) {
           if (aRawChar >= 0x20 && aRawChar <= 0x7E) {
