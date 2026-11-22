@@ -1081,6 +1081,7 @@ media/SoundPlayer.h
 NetworkInterface.h
 NetworkRoster.h
 Node.h
+storage/AppFileInfo.h
 storage/Directory.h
 storage/Entry.h
 storage/File.h
@@ -1089,6 +1090,7 @@ storage/Mime.h
 storage/Node.h
 storage/NodeInfo.h
 storage/Path.h
+storage/Resources.h
 support/Archivable.h
 support/Beep.h
 support/DataIO.h

@@ -13,6 +13,7 @@
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/widget/HaikuRemote.h"
 
 #pragma GCC visibility push(default)
 #include <app/Notification.h>
@@ -23,7 +24,6 @@ using namespace mozilla;
 using namespace mozilla::gfx;
 
 // Must match the BApplication signature in widget/haiku/HaikuApplication.cpp.
-#define BASILISK_SIGNATURE "application/x-vnd.Basilisk"
 #define ALERT_CLICK_FLAG "haiku-alert-click"
 
 // How long a shown alert stays clickable before "alertfinished" is sent.
@@ -237,11 +237,12 @@ nsHaikuAlertsService::Send(nsHaikuAlert* aAlert, uint8_t* aBGRA,
   NS_ConvertUTF16toUTF8 title(aAlert->mTitle);
   NS_ConvertUTF16toUTF8 text(aAlert->mText);
 
-  notification.SetGroup("Basilisk");
+  notification.SetGroup(mozilla::widget::HaikuAppName());
   notification.SetMessageID(name.get());
-  notification.SetTitle(title.IsEmpty() ? "Basilisk" : title.get());
+  notification.SetTitle(title.IsEmpty() ? mozilla::widget::HaikuAppName()
+                                         : title.get());
   notification.SetContent(text.get());
-  notification.SetOnClickApp(BASILISK_SIGNATURE);
+  notification.SetOnClickApp(mozilla::widget::HaikuAppSignature());
   notification.AddOnClickArg(BString("-" ALERT_CLICK_FLAG));
   notification.AddOnClickArg(BString(name.get()));
 

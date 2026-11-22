@@ -21,6 +21,17 @@ namespace widget {
  */
 bool HaikuForwardToRunningInstance(int aArgc, char** aArgv);
 
+/*
+ * The application's identity, read from the executable's own resources
+ * (each browser's .rdef), so the engine names no particular browser:
+ *  - HaikuAppSignature(): app_signature, e.g. "application/x-vnd.Basilisk"
+ *    (the base one, before any per-profile suffix);
+ *  - HaikuAppName(): the "UXP:APP_NAME" string resource, e.g. "Basilisk",
+ *    used in notifications and print jobs.
+ */
+const char* HaikuAppSignature();
+const char* HaikuAppName();
+
 }  // namespace widget
 }  // namespace mozilla
 
