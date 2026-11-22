@@ -16,6 +16,8 @@ CompilerType = EnumString.subclass(
 )
 
 OS = EnumString.subclass(
+    # Android is gone, but test moz.build files still compare OS_TARGET against it.
+    'Android',
     'DragonFly',
     'FreeBSD',
     'GNU',
