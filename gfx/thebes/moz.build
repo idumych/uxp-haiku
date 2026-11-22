@@ -109,16 +109,19 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'haiku':
         'gfxFT2FontBase.h',
         'gfxPlatformHaiku.h',
     ]
-    EXPORTS.mozilla.gfx += [
-        'PrintTargetPDF.h',
-    ]
     SOURCES += [
         'gfxFcPlatformFontList.cpp',
         'gfxFT2FontBase.cpp',
         'gfxFT2Utils.cpp',
         'gfxPlatformHaiku.cpp',
-        'PrintTargetPDF.cpp',
     ]
+    if CONFIG['MOZ_PDF_PRINTING']:
+        EXPORTS.mozilla.gfx += [
+            'PrintTargetPDF.h',
+        ]
+        SOURCES += [
+            'PrintTargetPDF.cpp',
+        ]
 
 elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'windows':
     EXPORTS += [
