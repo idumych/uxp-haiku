@@ -9,10 +9,13 @@
 #include "nsIScreenManager.h"
 #include "nsCOMPtr.h"
 
-// Haiku has one screen for now (B_MAIN_SCREEN_ID).
+#include "nsTArray.h"
+
+// One nsIScreen per BScreen (enumerated with BScreen::SetToNext()).
 class nsScreenHaiku final : public nsBaseScreen {
  public:
-  nsScreenHaiku() = default;
+  explicit nsScreenHaiku(int32_t aScreenId) : mScreenId(aScreenId) {}
+  int32_t ScreenId() const { return mScreenId; }
 
   NS_IMETHOD GetId(uint32_t* aId) override;
   NS_IMETHOD GetRect(int32_t* aLeft, int32_t* aTop, int32_t* aWidth,
@@ -25,6 +28,7 @@ class nsScreenHaiku final : public nsBaseScreen {
 
  private:
   ~nsScreenHaiku() = default;
+  int32_t mScreenId;
 };
 
 class nsScreenManagerHaiku final : public nsIScreenManager {
@@ -36,7 +40,10 @@ class nsScreenManagerHaiku final : public nsIScreenManager {
 
  private:
   ~nsScreenManagerHaiku() = default;
-  nsCOMPtr<nsIScreen> mScreen;
+  void RefreshScreens();
+  nsIScreen* ScreenWithId(int32_t aId);
+
+  nsTArray<RefPtr<nsScreenHaiku>> mScreens;
 };
 
 #endif  // nsScreenHaiku_h___
