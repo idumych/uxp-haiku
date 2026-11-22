@@ -52,6 +52,15 @@
 #include "nsIGIOService.h"
 #endif
 
+#ifdef XP_HAIKU
+#pragma GCC visibility push(default)
+#include <app/Roster.h>
+#include <app/Messenger.h>
+#include <app/Message.h>
+#include <storage/Entry.h>
+#pragma GCC visibility pop
+#endif
+
 #ifdef MOZ_WIDGET_COCOA
 #include <Carbon/Carbon.h>
 #include "CocoaFileUtils.h"
@@ -1957,6 +1966,30 @@ nsLocalFile::Reveal()
 
     return giovfs->ShowURIForInput(dirPath);
   }
+#elif defined(XP_HAIKU)
+  BEntry entry(mPath.get());
+  entry_ref fileRef;
+  if (!entry.Exists() || entry.GetRef(&fileRef) != B_OK) {
+    return NS_ERROR_FILE_NOT_FOUND;
+  }
+  BMessenger tracker("application/x-vnd.Be-TRAK");
+  if (!tracker.IsValid()) {
+    return NS_ERROR_FAILURE;
+  }
+  BMessage message(B_REFS_RECEIVED);
+  if (entry.IsDirectory()) {
+    message.AddRef("refs", &fileRef);
+  } else {
+    BEntry parentEntry;
+    entry_ref parentRef;
+    if (entry.GetParent(&parentEntry) != B_OK ||
+        parentEntry.GetRef(&parentRef) != B_OK) {
+      return NS_ERROR_FAILURE;
+    }
+    message.AddRef("refs", &parentRef);
+    message.AddRef("findRef", &fileRef);
+  }
+  return tracker.SendMessage(&message) == B_OK ? NS_OK : NS_ERROR_FAILURE;
 #elif defined(MOZ_WIDGET_COCOA)
   CFURLRef url;
   if (NS_SUCCEEDED(GetCFURL(&url))) {
@@ -1980,6 +2013,24 @@ nsLocalFile::Launch()
   }
 
   return giovfs->ShowURIForInput(mPath);
+#elif defined(XP_HAIKU)
+  entry_ref fileRef;
+  if (get_ref_for_path(mPath.get(), &fileRef) != B_OK) {
+    return NS_ERROR_FILE_NOT_FOUND;
+  }
+  status_t status = be_roster->Launch(&fileRef);
+  if (status == B_OK || status == B_ALREADY_RUNNING) {
+    return NS_OK;
+  }
+  BMessenger tracker("application/x-vnd.Be-TRAK");
+  if (tracker.IsValid()) {
+    BMessage openMsg(B_REFS_RECEIVED);
+    openMsg.AddRef("refs", &fileRef);
+    if (tracker.SendMessage(&openMsg) == B_OK) {
+      return NS_OK;
+    }
+  }
+  return NS_ERROR_FAILURE;
 #elif defined(MOZ_ENABLE_CONTENTACTION)
   QUrl uri = QUrl::fromLocalFile(QString::fromUtf8(mPath.get()));
   ContentAction::Action action =

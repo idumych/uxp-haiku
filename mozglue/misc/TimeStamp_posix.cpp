@@ -12,7 +12,9 @@
 // obtained with this API; see TimeDuration::Resolution;
 //
 
-#ifndef XP_HAIKU
+#ifdef XP_HAIKU
+#include <OS.h>
+#else
 #include <sys/syscall.h>
 #endif
 #include <time.h>
@@ -348,6 +350,23 @@ TimeStamp::ComputeProcessUptime()
   }
 
   return (now - startTime) / kNsPerUs;
+}
+
+#elif defined(XP_HAIKU)
+
+// team_info::start_time is in system_time() units (us since boot).
+uint64_t
+TimeStamp::ComputeProcessUptime()
+{
+  team_info info;
+  if (get_team_info(B_CURRENT_TEAM, &info) != B_OK) {
+    return 0;
+  }
+  bigtime_t now = system_time();
+  if (info.start_time > now) {
+    return 0;
+  }
+  return uint64_t(now - info.start_time);
 }
 
 #else

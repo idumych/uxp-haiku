@@ -29,6 +29,9 @@
 #if defined(MOZ_WIDGET_COCOA)
 #include "CocoaFileUtils.h"
 #endif
+#if defined(XP_HAIKU)
+#include <FindDirectory.h>
+#endif
 
 #endif
 
@@ -181,6 +184,18 @@ GetRegWindowsAppDataFolder(bool aLocal, nsIFile** aFile)
 }
 
 #endif // XP_WIN
+
+#if defined(XP_HAIKU)
+static nsresult
+GetHaikuDirectory(directory_which aWhich, nsIFile** aFile)
+{
+  char path[MAXPATHLEN];
+  if (find_directory(aWhich, -1, false, path, sizeof(path)) != B_OK) {
+    return NS_ERROR_FAILURE;
+  }
+  return NS_NewNativeLocalFile(nsDependentCString(path), true, aFile);
+}
+#endif
 
 #if defined(XP_UNIX)
 static nsresult
@@ -386,6 +401,21 @@ GetUnixXDGUserDirectory(SystemDirectories aSystemDirectory,
     rv = NS_NewNativeLocalFile(nsDependentCString(dir), true,
                                getter_AddRefs(file));
     free(dir);
+#if defined(XP_HAIKU)
+  } else if (Unix_XDG_Desktop == aSystemDirectory ||
+             Unix_XDG_Download == aSystemDirectory) {
+    // Haiku has no XDG user dirs; use the Desktop (also WebPositive's
+    // default download location).
+    rv = GetHaikuDirectory(B_DESKTOP_DIRECTORY, getter_AddRefs(file));
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+  } else if (Unix_XDG_Documents == aSystemDirectory) {
+    rv = GetHaikuDirectory(B_USER_DIRECTORY, getter_AddRefs(file));
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+#endif
   } else if (Unix_XDG_Desktop == aSystemDirectory) {
     // for the XDG desktop dir, fall back to HOME/Desktop
     // (for historical compatibility)
@@ -502,6 +532,13 @@ GetSpecialSystemDirectory(SystemDirectories aSystemSystemDirectory,
           if (!tPath || !*tPath) {
             tPath = PR_GetEnv("TEMP");
             if (!tPath || !*tPath) {
+#if defined(XP_HAIKU)
+              static char sHaikuTmp[MAXPATHLEN];
+              if (find_directory(B_SYSTEM_TEMP_DIRECTORY, -1, false,
+                                 sHaikuTmp, sizeof(sHaikuTmp)) == B_OK) {
+                tPath = sHaikuTmp;
+              } else
+#endif
               tPath = "/tmp/";
             }
           }
