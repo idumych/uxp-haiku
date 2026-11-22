@@ -4126,6 +4126,81 @@ pref("font.name.serif.zh-TW", "serif");
 pref("font.name.sans-serif.zh-TW", "sans-serif");
 pref("font.name.monospace.zh-TW", "monospace");
 
+#ifdef MOZ_WIDGET_HAIKU
+// Haiku: name the bundled Noto families explicitly instead of relying on
+// fontconfig's generic aliases. be_plain_font is Noto Sans 12 (Haiku sizes
+// are in pixels), which is small for web content, so keep the 16px CSS
+// default for proportional text.
+pref("font.size.variable.x-western", 16);
+pref("font.size.variable.x-unicode", 16);
+pref("font.size.fixed.x-western", 13);
+pref("font.size.fixed.x-unicode", 13);
+pref("font.size.fixed.x-cyrillic", 13);
+pref("font.size.fixed.el", 13);
+pref("font.name.serif.x-western", "Noto Serif");
+pref("font.name.sans-serif.x-western", "Noto Sans");
+pref("font.name.monospace.x-western", "Noto Sans Mono");
+pref("font.name.serif.x-unicode", "Noto Serif");
+pref("font.name.sans-serif.x-unicode", "Noto Sans");
+pref("font.name.monospace.x-unicode", "Noto Sans Mono");
+pref("font.name.serif.x-cyrillic", "Noto Serif");
+pref("font.name.sans-serif.x-cyrillic", "Noto Sans");
+pref("font.name.monospace.x-cyrillic", "Noto Sans Mono");
+pref("font.name.serif.el", "Noto Serif");
+pref("font.name.sans-serif.el", "Noto Sans");
+pref("font.name.monospace.el", "Noto Sans Mono");
+pref("font.name.serif.x-armn", "Noto Serif");
+pref("font.name.sans-serif.x-armn", "Noto Sans");
+pref("font.name.monospace.x-armn", "Noto Sans Mono");
+pref("font.name.serif.x-geor", "Noto Serif");
+pref("font.name.sans-serif.x-geor", "Noto Sans");
+pref("font.name.monospace.x-geor", "Noto Sans Mono");
+pref("font.name.serif.x-ethi", "Noto Serif");
+pref("font.name.sans-serif.x-ethi", "Noto Sans");
+pref("font.name.monospace.x-ethi", "Noto Sans Mono");
+pref("font.name.serif.x-cans", "Noto Serif");
+pref("font.name.sans-serif.x-cans", "Noto Sans");
+pref("font.name.monospace.x-cans", "Noto Sans Mono");
+pref("font.name.serif.th", "Noto Serif Thai");
+pref("font.name.sans-serif.th", "Noto Sans Thai");
+pref("font.name.monospace.th", "Noto Sans Mono");
+pref("font.name.serif.ja", "Noto Sans CJK JP");
+pref("font.name.sans-serif.ja", "Noto Sans CJK JP");
+pref("font.name.monospace.ja", "Noto Sans Mono CJK JP");
+pref("font.name.serif.ko", "Noto Sans CJK JP");
+pref("font.name.sans-serif.ko", "Noto Sans CJK JP");
+pref("font.name.monospace.ko", "Noto Sans Mono CJK JP");
+pref("font.name.serif.zh-CN", "Noto Sans CJK JP");
+pref("font.name.sans-serif.zh-CN", "Noto Sans CJK JP");
+pref("font.name.monospace.zh-CN", "Noto Sans Mono CJK JP");
+pref("font.name.serif.zh-HK", "Noto Sans CJK JP");
+pref("font.name.sans-serif.zh-HK", "Noto Sans CJK JP");
+pref("font.name.monospace.zh-HK", "Noto Sans Mono CJK JP");
+pref("font.name.serif.zh-TW", "Noto Sans CJK JP");
+pref("font.name.sans-serif.zh-TW", "Noto Sans CJK JP");
+pref("font.name.monospace.zh-TW", "Noto Sans Mono CJK JP");
+// Fallbacks for every language: symbols and CJK coverage.
+pref("font.name-list.serif.x-unicode", "Noto Serif, Noto Sans Symbols, Noto Sans Symbols 2, Noto Sans CJK JP");
+pref("font.name-list.sans-serif.x-unicode", "Noto Sans, Noto Sans Symbols, Noto Sans Symbols 2, Noto Sans CJK JP");
+pref("font.name-list.monospace.x-unicode", "Noto Sans Mono, Noto Sans Mono CJK JP");
+// Use a colour emoji font if one is installed (HaikuPorts noto_emoji),
+// then the bundled Twemoji Mozilla.
+pref("font.name-list.emoji", "Noto Color Emoji, Twemoji Mozilla");
+
+// No X11-style primary selection on Haiku: middle click doesn't paste or
+// jump the scrollbar, and selecting text doesn't copy it.
+pref("middlemouse.paste", false);
+pref("middlemouse.scrollbarPosition", false);
+pref("clipboard.autocopy", false);
+// Clicking in the URL bar selects it all, as in WebPositive.
+pref("browser.urlbar.clickSelectsAll", true);
+pref("general.smoothScroll", true);
+// There's no /etc/mime.types or mailcap on Haiku; MIME handling goes
+// through the Haiku MIME database (see uriloader/exthandler/unix).
+pref("helpers.global_mime_types_file", "");
+pref("helpers.global_mailcap_file", "");
+#endif
+
 /* PostScript print module prefs */
 // pref("print.postscript.enabled",      true);
 
