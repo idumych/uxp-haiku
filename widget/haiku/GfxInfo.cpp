@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "GfxInfo.h"
+#include "mozilla/Preferences.h"
 
 using namespace mozilla::widget;
 
@@ -102,9 +103,18 @@ GfxInfo::GetFeatureStatusImpl(int32_t aFeature,
   }
 
   switch (aFeature) {
-    case nsIGfxInfo::FEATURE_OPENGL_LAYERS:
     case nsIGfxInfo::FEATURE_WEBGL_OPENGL:
     case nsIGfxInfo::FEATURE_WEBGL_MSAA:
+      // WebGL runs on OSMesa (llvmpipe) through GLContextProviderOSMesa,
+      // which can be turned off with gfx.haiku.osmesa.enabled.
+      if (mozilla::Preferences::GetBool("gfx.haiku.osmesa.enabled", true)) {
+        *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
+        return NS_OK;
+      }
+      *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
+      aFailureId = "FEATURE_FAILURE_HAIKU_OSMESA_DISABLED";
+      return NS_OK;
+    case nsIGfxInfo::FEATURE_OPENGL_LAYERS:
     case nsIGfxInfo::FEATURE_CANVAS2D_ACCELERATION:
     case nsIGfxInfo::FEATURE_HARDWARE_VIDEO_DECODING:
     case nsIGfxInfo::FEATURE_VP8_HW_DECODE:
