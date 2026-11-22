@@ -31,6 +31,8 @@
 #ifdef MOZ_WIDGET_GTK
 #include <gdk/gdk.h>
 #include "gfxPlatformGtk.h"
+#elif defined(MOZ_WIDGET_HAIKU)
+#include "gfxPlatformHaiku.h"
 #endif
 
 #ifdef MOZ_X11
@@ -1764,7 +1766,11 @@ gfxFcPlatformFontList::FindGenericFamilies(const nsAString& aGeneric,
 
     // -- select the fonts to be used for the generic
     prefFonts = new PrefFontList; // can be empty but in practice won't happen
+#ifdef MOZ_WIDGET_HAIKU
+    uint32_t limit = gfxPlatformHaiku::GetPlatform()->MaxGenericSubstitions();
+#else
     uint32_t limit = gfxPlatformGtk::GetPlatform()->MaxGenericSubstitions();
+#endif
     bool foundFontWithLang = false;
     for (int i = 0; i < faces->nfont; i++) {
         FcPattern* font = faces->fonts[i];

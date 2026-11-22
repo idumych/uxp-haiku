@@ -55,7 +55,10 @@ namespace gl {
 #include "GLContextProviderImpl.h"
 #undef GL_CONTEXT_PROVIDER_NAME
 
-#if defined(MOZ_X11)
+#if defined(MOZ_WIDGET_HAIKU)
+  // No GL on Haiku yet: basic compositor, no WebGL.
+  #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderNull
+#elif defined(MOZ_X11)
   #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderX11
 #elif !defined(GL_CONTEXT_PROVIDER_DEFAULT)
   #define GL_CONTEXT_PROVIDER_DEFAULT GLContextProviderEGL

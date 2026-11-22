@@ -67,6 +67,11 @@ if CONFIG['MOZ_X11']:
         'GLContextProviderX11.cpp',
     ]
 
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'haiku':
+    UNIFIED_SOURCES += [
+        'GLContextProviderNull.cpp',
+    ]
+
 # Win32 is a special snowflake, for ANGLE
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'windows':
     EXPORTS += [
