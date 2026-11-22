@@ -346,6 +346,12 @@ bool Channel::ChannelImpl::ProcessIncomingMessages() {
     // a pointer to an array of |num_wire_fds| file descriptors from the read
     const int* wire_fds = NULL;
     unsigned num_wire_fds = 0;
+#if defined(OS_HAIKU)
+    // Haiku can deliver the descriptors of several coalesced sendmsg()
+    // calls as separate SCM_RIGHTS headers in one recvmsg(), so collect
+    // all of them instead of stopping at the first.
+    std::vector<int> haiku_wire_fds;
+#endif
 
     // walk the list of control messages and, if we find an array of file
     // descriptors, save a pointer to the array
@@ -370,8 +376,16 @@ bool Channel::ChannelImpl::ProcessIncomingMessages() {
             cmsg->cmsg_type == SCM_RIGHTS) {
           const unsigned payload_len = cmsg->cmsg_len - CMSG_LEN(0);
           DCHECK(payload_len % sizeof(int) == 0);
+#if defined(OS_HAIKU)
+          const int* cmsg_fds = reinterpret_cast<int*>(CMSG_DATA(cmsg));
+          haiku_wire_fds.insert(haiku_wire_fds.end(), cmsg_fds,
+                                cmsg_fds + payload_len / sizeof(int));
+          wire_fds = haiku_wire_fds.data();
+          num_wire_fds = haiku_wire_fds.size();
+#else
           wire_fds = reinterpret_cast<int*>(CMSG_DATA(cmsg));
           num_wire_fds = payload_len / 4;
+#endif
 
           if (msg.msg_flags & MSG_CTRUNC) {
             CHROMIUM_LOG(ERROR) << "SCM_RIGHTS message was truncated"
@@ -381,7 +395,9 @@ bool Channel::ChannelImpl::ProcessIncomingMessages() {
               HANDLE_EINTR(close(wire_fds[i]));
             return false;
           }
+#if !defined(OS_HAIKU)
           break;
+#endif
         }
       }
     }

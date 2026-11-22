@@ -20,7 +20,8 @@
 #if defined(OS_POSIX)
 #include "base/message_pump_libevent.h"
 #endif
-#if defined(OS_LINUX) || defined(OS_BSD) || defined (OS_SOLARIS)
+#if defined(OS_LINUX) || defined(OS_BSD) || defined (OS_SOLARIS) || \
+    defined(OS_HAIKU)
 #if defined(MOZ_WIDGET_GTK)
 #include "base/message_pump_glib.h"
 #endif
@@ -145,7 +146,11 @@ MessageLoop::MessageLoop(Type type, nsIThread* aThread)
   if (type_ == TYPE_UI) {
 #if defined(OS_MACOSX)
     pump_ = base::MessagePumpMac::Create();
-#elif defined(OS_LINUX) || defined(OS_BSD) || defined(OS_SOLARIS)
+#elif defined(OS_HAIKU) && !defined(MOZ_WIDGET_GTK)
+    // The native Haiku widget runs its own BLooper; nothing glib-based here.
+    pump_ = new base::MessagePumpDefault();
+#elif defined(OS_LINUX) || defined(OS_BSD) || defined(OS_SOLARIS) || \
+      defined(OS_HAIKU)
     pump_ = new base::MessagePumpForUI();
 #endif  // OS_LINUX
   } else if (type_ == TYPE_IO) {

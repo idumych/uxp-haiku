@@ -33,6 +33,8 @@
 #define OS_OPENBSD 1
 #elif defined(__sun__)
 #define OS_SOLARIS 1
+#elif defined(__HAIKU__)
+#define OS_HAIKU 1
 #elif defined(_WIN32)
 #define OS_WIN 1
 #else
@@ -48,7 +50,8 @@
 
 // For access to standard POSIX features, use OS_POSIX instead of a more
 // specific macro.
-#if defined(OS_MACOSX) || defined(OS_LINUX) || defined(OS_BSD) || defined(OS_SOLARIS)
+#if defined(OS_MACOSX) || defined(OS_LINUX) || defined(OS_BSD) || defined(OS_SOLARIS) || \
+    defined(OS_HAIKU)
 #define OS_POSIX 1
 #endif
 

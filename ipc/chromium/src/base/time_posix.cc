@@ -172,7 +172,8 @@ TimeTicks TimeTicks::Now() {
   // With numer and denom = 1 (the expected case), the 64-bit absolute time
   // reported in nanoseconds is enough to last nearly 585 years.
 
-#elif defined(OS_OPENBSD) || defined(OS_SOLARIS) || defined(OS_POSIX) && \
+#elif defined(OS_OPENBSD) || defined(OS_SOLARIS) || defined(OS_HAIKU) || \
+      defined(OS_POSIX) && \
       defined(_POSIX_MONOTONIC_CLOCK) && _POSIX_MONOTONIC_CLOCK >= 0
 
   struct timespec ts;

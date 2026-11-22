@@ -45,6 +45,8 @@
 #elif defined(__sun)
 #define OS_SOLARIS 1
 #define TOOLKIT_GTK
+#elif defined(__HAIKU__)
+#define OS_HAIKU 1
 #else
 #error Please add support for your platform in build/build_config.h
 #endif
@@ -63,7 +65,7 @@
 // For access to standard POSIXish features, use OS_POSIX instead of a
 // more specific macro.
 #if defined(OS_MACOSX) || defined(OS_LINUX) || defined(OS_BSD) ||	\
-    defined(OS_SOLARIS)
+    defined(OS_SOLARIS) || defined(OS_HAIKU)
 #define OS_POSIX 1
 #endif
 

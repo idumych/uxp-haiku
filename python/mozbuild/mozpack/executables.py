@@ -84,6 +84,11 @@ def may_strip(path):
     Return whether strip() should be called
     '''
     from buildconfig import substs
+    # Haiku keeps application resources (signature, icon, version) appended
+    # to the executable and strip drops them; binaries are stripped at link
+    # time there (--enable-strip), before the resources are attached.
+    if substs.get('OS_ARCH') == 'Haiku':
+        return False
     return not substs['PKG_SKIP_STRIP']
 
 

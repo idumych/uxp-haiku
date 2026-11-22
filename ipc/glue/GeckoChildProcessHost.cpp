@@ -577,7 +577,8 @@ GeckoChildProcessHost::PerformAsyncLaunchInternal(std::vector<std::string>& aExt
   // and passing wstrings from one config to the other is unsafe.  So
   // we split the logic here.
 
-#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_BSD) || defined(OS_SOLARIS)
+#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_BSD) || defined(OS_SOLARIS) || \
+    defined(OS_HAIKU)
   base::environment_map newEnvVars;
   ChildPrivileges privs = mPrivileges;
   if (privs == base::PRIVILEGES_DEFAULT) {
@@ -614,6 +615,16 @@ GeckoChildProcessHost::PerformAsyncLaunchInternal(std::vector<std::string>& aExt
       new_ld_lib_path.Append(ld_library_path);
     }
     newEnvVars["LD_LIBRARY_PATH"] = new_ld_lib_path.get();
+
+# elif defined(OS_HAIKU)
+    // Haiku's runtime_loader searches LIBRARY_PATH.
+    const char *library_path = PR_GetEnv("LIBRARY_PATH");
+    nsCString new_lib_path(path.get());
+    if (library_path && *library_path) {
+      new_lib_path.Append(':');
+      new_lib_path.Append(library_path);
+    }
+    newEnvVars["LIBRARY_PATH"] = new_lib_path.get();
 
 # elif OS_MACOSX
     newEnvVars["DYLD_LIBRARY_PATH"] = path.get();
@@ -706,7 +717,8 @@ GeckoChildProcessHost::PerformAsyncLaunchInternal(std::vector<std::string>& aExt
   childArgv.push_back(childProcessType);
 
   base::LaunchApp(childArgv, mFileMap,
-#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_BSD) || defined(OS_SOLARIS)
+#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_BSD) || defined(OS_SOLARIS) || \
+    defined(OS_HAIKU)
                   newEnvVars, privs,
 #endif
                   false, &process, arch);
