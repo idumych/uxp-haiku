@@ -12,11 +12,17 @@ else
 ifeq (,$(filter-out SunOS, $(OS_ARCH)))
    MOZ_PKG_FORMAT  = BZ2
 else
+ifeq (Haiku,$(OS_ARCH))
+   # Plain .tar.xz of the app directory; packaging/haiku/build-hpkg.sh
+   # turns the staged directory into an .hpkg.
+   MOZ_PKG_FORMAT  = TXZ
+else
    ifeq (,$(filter-out gtk2 gtk3 qt, $(MOZ_WIDGET_TOOLKIT)))
       MOZ_PKG_FORMAT  = BZ2
    else
       MOZ_PKG_FORMAT = TGZ
    endif
+endif
 endif
 endif
 endif
@@ -103,6 +109,13 @@ ifeq ($(MOZ_PKG_FORMAT),TGZ)
   INNER_MAKE_PACKAGE 	= $(CREATE_FINAL_TAR) - $(MOZ_PKG_DIR) | gzip -vf9 > $(PACKAGE)
   INNER_UNMAKE_PACKAGE	= gunzip -c $(UNPACKAGE) | $(UNPACK_TAR)
   MAKE_SDK = $(CREATE_FINAL_TAR) - $(MOZ_APP_NAME)-sdk | gzip -vf9 > '$(SDK)'
+endif
+
+ifeq ($(MOZ_PKG_FORMAT),TXZ)
+  PKG_SUFFIX	= .tar.xz
+  INNER_MAKE_PACKAGE 	= $(CREATE_FINAL_TAR) - $(MOZ_PKG_DIR) | xz -9 > $(PACKAGE)
+  INNER_UNMAKE_PACKAGE	= xz -dc $(UNPACKAGE) | $(UNPACK_TAR)
+  MAKE_SDK = $(CREATE_FINAL_TAR) - $(MOZ_APP_NAME)-sdk | xz -9 > '$(SDK)'
 endif
 
 ifeq ($(MOZ_PKG_FORMAT),BZ2)
