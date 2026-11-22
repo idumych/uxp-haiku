@@ -180,6 +180,11 @@ static inline void dav1d_set_thread_name(const char *const name) {
 #elif defined(__HAIKU__)
 
 #include <os/kernel/OS.h>
+/* OS.h pulls in <sys/param.h>, whose ALIGN conflicts with ALIGN from
+ * "common/attributes.h": restore the dav1d definition. */
+#undef ALIGN
+#define ALIGN(line, align) \
+    line __attribute__((aligned(align)))
 
 static inline void dav1d_set_thread_name(const char *const name) {
     rename_thread(find_thread(NULL), name);
