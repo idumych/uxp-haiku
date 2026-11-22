@@ -486,7 +486,7 @@ NS_IMETHODIMP nsWindow::SetCursor(imgIContainer* aCursor, uint32_t aHotspotX,
                                    mCustomCursor)) {
     return NS_ERROR_FAILURE;
   }
-  mCursor = eCursorInvalid;
+  mCursor = eCursorCount;  // force SetCursor(nsCursor) to reapply
   return NS_OK;
 }
 

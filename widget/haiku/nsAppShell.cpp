@@ -11,7 +11,6 @@
 #include <utility>
 
 #include "mozilla/HangMonitor.h"
-#include "mozilla/Hal.h"
 #include "mozilla/LookAndFeel.h"
 #include "nsXULAppAPI.h"
 #include "nsIAppStartup.h"
@@ -40,10 +39,6 @@ nsAppShell::nsAppShell() : mWakeupPort(-1), mWakeupPending(false) {
 
 nsAppShell::~nsAppShell() {
   sHaikuAppShell = nullptr;
-
-  if (XRE_IsParentProcess()) {
-    mozilla::hal::Shutdown();
-  }
 
   if (mWakeupPort >= B_OK) {
     delete_port(mWakeupPort);
@@ -78,9 +73,6 @@ void nsAppShell::InstallTermSignalHandler() {
 nsresult nsAppShell::Init() {
   HaikuApplication::EnsureInitialized();
 
-  if (XRE_IsParentProcess()) {
-    mozilla::hal::Init();
-  }
   InstallTermSignalHandler();
 
   mWakeupPort = create_port(100, "gecko_appshell_wakeup");
