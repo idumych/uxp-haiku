@@ -353,7 +353,12 @@ def main():
     # Fill startup cache
     if isinstance(formatter, OmniJarFormatter) and launcher.can_launch() \
       and buildconfig.substs['MOZ_DISABLE_STARTUPCACHE'] != '1' \
-      and buildconfig.substs['MOZ_DISABLE_PRECOMPILED_STARTUPCACHE'] != '1':
+      and buildconfig.substs['MOZ_DISABLE_PRECOMPILED_STARTUPCACHE'] != '1' \
+      and os.environ.get('MOZ_DISABLE_PRECOMPILED_STARTUPCACHE') != '1' \
+      and os.path.exists(os.path.join(args.source, 'bin', 'xpcshell' +
+                                      buildconfig.substs.get('BIN_SUFFIX', ''))):
+        # Precompiling runs xpcshell, which isn't built without --enable-tests
+        # (and can be skipped with MOZ_DISABLE_PRECOMPILED_STARTUPCACHE=1).
         gre_path = None
         def get_bases():
             for b in sink.packager.get_bases(addons=False):
