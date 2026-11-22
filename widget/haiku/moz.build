@@ -50,3 +50,5 @@ LOCAL_INCLUDES += [
 
 for f in ('HaikuApplication.cpp', 'HaikuView.cpp', 'nsFilePicker.cpp'):
     SOURCES[f].flags += ['-frtti']
+
+CXXFLAGS += CONFIG['MOZ_CAIRO_CFLAGS']
