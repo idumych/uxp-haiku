@@ -10,6 +10,11 @@
 
 #include "nsFilePicker.h"
 
+#include <fnmatch.h>
+#ifndef FNM_CASEFOLD
+#define FNM_CASEFOLD 0
+#endif
+
 #include "HaikuUtils.h"
 #include "nsArrayEnumerator.h"
 #include "nsIWidget.h"
@@ -18,6 +23,56 @@
 #include "nsXPCOM.h"
 
 using namespace mozilla;
+
+// Shows directories, plus the files matching one nsIFilePicker filter
+// ("*.html; *.htm"). Patterns are matched case-insensitively.
+class PatternRefFilter : public BRefFilter
+{
+public:
+  explicit PatternRefFilter(const nsAString& aFilter)
+  {
+    NS_ConvertUTF16toUTF8 filter(aFilter);
+    int32_t start = 0;
+    while (start < int32_t(filter.Length())) {
+      int32_t end = filter.FindChar(';', start);
+      if (end < 0) {
+        end = filter.Length();
+      }
+      nsAutoCString pattern(Substring(filter, start, end - start));
+      pattern.Trim(" ");
+      if (!pattern.IsEmpty()) {
+        mPatterns.AppendElement(pattern);
+      }
+      start = end + 1;
+    }
+  }
+
+  bool Filter(const entry_ref* aRef, BNode* aNode, struct stat_beos* aStat,
+              const char* aMimeType) override
+  {
+    if (aNode && aNode->IsDirectory()) {
+      return true;
+    }
+    if (!aRef || !aRef->name) {
+      return false;
+    }
+    // Follow symlinks to directories.
+    BEntry entry(aRef, true);
+    if (entry.IsDirectory()) {
+      return true;
+    }
+    for (const nsCString& pattern : mPatterns) {
+      if (pattern.EqualsLiteral("*") || pattern.EqualsLiteral("..apps") ||
+          fnmatch(pattern.get(), aRef->name, FNM_CASEFOLD) == 0) {
+        return true;
+      }
+    }
+    return mPatterns.IsEmpty();
+  }
+
+private:
+  nsTArray<nsCString> mPatterns;
+};
 
 class FilePanelLooper : public BLooper
 {
@@ -99,6 +154,7 @@ nsFilePicker::nsFilePicker()
   , mRunning(false)
   , mPanel(nullptr)
   , mLooper(nullptr)
+  , mRefFilter(nullptr)
 {
 }
 
@@ -112,6 +168,8 @@ nsFilePicker::ClosePanel()
 {
   delete mPanel;
   mPanel = nullptr;
+  delete mRefFilter;
+  mRefFilter = nullptr;
   if (mLooper) {
     mLooper->DetachPicker();
     if (mLooper->Lock()) {
@@ -169,6 +227,17 @@ nsFilePicker::ShowPanel()
     if (NS_SUCCEEDED(mDisplayDirectory->GetNativePath(dirPath))) {
       mPanel->SetPanelDirectory(dirPath.get());
     }
+  }
+
+  // Apply the selected nsIFilePicker filter (open modes only; a save panel
+  // must show everything in the folder).
+  if (mMode != modeSave && mMode != modeGetFolder && !mFilters.IsEmpty()) {
+    int32_t index = mSelectedTypeIndex;
+    if (index < 0 || index >= int32_t(mFilters.Length())) {
+      index = 0;
+    }
+    mRefFilter = new PatternRefFilter(mFilters[index]);
+    mPanel->SetRefFilter(mRefFilter);
   }
 
   if (mMode == modeSave && !mDefaultFilename.IsEmpty()) {

@@ -85,12 +85,14 @@ static bool FindMimeString(const BMessage* aMsg, const char* aField,
 
 static bool FindURL(const BMessage* aMsg, nsACString& aURL)
 {
-  if (FindMimeString(aMsg, "text/uri-list", aURL)) {
-    int32_t nl = aURL.FindChar('\n');
+  nsAutoCString list;
+  if (FindMimeString(aMsg, "text/uri-list", list)) {
+    int32_t nl = list.FindChar('\n');
     if (nl >= 0) {
-      aURL.Truncate(nl);
+      list.Truncate(nl);
     }
-    aURL.Trim("\r\n ");
+    list.Trim("\r\n ");
+    aURL = list;
     return !aURL.IsEmpty();
   }
   return FindMimeString(aMsg, "be:url", aURL);
@@ -369,7 +371,10 @@ nsDragService::InvokeDragSessionImpl(nsIArray* aTransferableArray,
     nsAutoString str;
     if (GetTransferString(item, kURLMime, str)) {
       int32_t nl = str.FindChar('\n');
-      NS_ConvertUTF16toUTF8 url(nl >= 0 ? Substring(str, 0, nl) : str);
+      if (nl >= 0) {
+        str.Truncate(nl);
+      }
+      NS_ConvertUTF16toUTF8 url(str);
       msg.AddData("text/uri-list", B_MIME_TYPE, url.get(), url.Length());
       msg.AddString("be:url", url.get());
       if (!msg.HasData("text/plain", B_MIME_TYPE)) {

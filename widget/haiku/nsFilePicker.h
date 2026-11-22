@@ -15,6 +15,7 @@
 
 class BFilePanel;
 class FilePanelLooper;
+class BRefFilter;
 class nsIWidget;
 
 class nsFilePicker final : public nsBaseFilePicker
@@ -65,6 +66,7 @@ private:
 
   BFilePanel* mPanel;
   FilePanelLooper* mLooper;
+  BRefFilter* mRefFilter;
 };
 
 #endif // nsFilePicker_h__
