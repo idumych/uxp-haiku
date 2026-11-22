@@ -179,7 +179,7 @@ static inline void dav1d_set_thread_name(const char *const name) {
 
 #elif defined(__HAIKU__)
 
-#include <os/kernel/OS.h>
+#include <OS.h> /* wrapped in config/system-headers, so not hidden */
 /* OS.h pulls in <sys/param.h>, whose ALIGN conflicts with ALIGN from
  * "common/attributes.h": restore the dav1d definition. */
 #undef ALIGN

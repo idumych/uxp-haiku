@@ -1081,7 +1081,6 @@ media/SoundPlayer.h
 NetworkInterface.h
 NetworkRoster.h
 Node.h
-os/kernel/OS.h
 storage/Directory.h
 storage/Entry.h
 storage/File.h
