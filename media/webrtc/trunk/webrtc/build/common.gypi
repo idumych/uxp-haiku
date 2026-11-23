@@ -359,6 +359,13 @@
           'WEBRTC_MAC',
         ],
       }],
+      ['OS=="haiku"', {
+        # Haiku counts as a BSD in gyp (os_bsd, WEBRTC_BSD: POSIX without Linux
+        # specifics); WEBRTC_HAIKU marks where it differs.
+        'defines': [
+          'WEBRTC_HAIKU',
+        ],
+      }],
       ['OS=="win"', {
         'defines': [
           'WEBRTC_WIN',

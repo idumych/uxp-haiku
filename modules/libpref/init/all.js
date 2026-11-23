@@ -537,7 +537,7 @@ pref("media.navigator.audio.full_duplex", false);
 pref("media.peerconnection.capture_delay", 50);
 pref("media.getusermedia.playout_delay", 40);
 pref("media.navigator.audio.full_duplex", false);
-#elif defined(XP_LINUX)
+#elif defined(XP_LINUX) || defined(XP_HAIKU)
 pref("media.peerconnection.capture_delay", 70);
 pref("media.getusermedia.playout_delay", 50);
 pref("media.navigator.audio.full_duplex", true);

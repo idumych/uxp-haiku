@@ -1449,6 +1449,17 @@ PluginInstanceChild::AnswerNPP_SetWindow(const NPRemoteWindow& aWindow)
 
     if (mPluginIface->setwindow)
         (void) mPluginIface->setwindow(&mData, &mWindow);
+#elif defined(XP_HAIKU)
+    // Haiku: windowless plugins only, so there's no native child window.
+    mWindow.x = aWindow.x;
+    mWindow.y = aWindow.y;
+    mWindow.width = aWindow.width;
+    mWindow.height = aWindow.height;
+    mWindow.clipRect = aWindow.clipRect;
+    mWindow.type = aWindow.type;
+
+    if (mPluginIface->setwindow)
+        (void) mPluginIface->setwindow(&mData, &mWindow);
 #else
 #  error Implement me for your OS
 #endif

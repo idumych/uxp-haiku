@@ -79,6 +79,21 @@
                 'linux/video_capture_linux.h',
               ],
             }],  # linux
+            ['OS=="haiku"', {
+              'sources': [
+                'haiku/device_info_haiku.cc',
+                'haiku/device_info_haiku.h',
+                'haiku/haiku_video_producers.h',
+                'haiku/video_capture_haiku.cc',
+                'haiku/video_capture_haiku.h',
+              ],
+              'link_settings': {
+                'libraries': [
+                  '-lmedia',
+                  '-lbe',
+                ],
+              },
+            }],  # haiku
             ['OS=="mac"', {
               'conditions': [
                 ['use_avfoundation==1', {

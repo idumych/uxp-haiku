@@ -64,6 +64,10 @@ if CONFIG['OS_TARGET'] == 'Linux':
     # to make sure that in6_pktinfo gets defined on all distros
     DEFINES['_GNU_SOURCE'] = True
 
+if CONFIG['OS_TARGET'] == 'Haiku':
+    # BSD extensions: arc4random_buf (libbsd), sockio constants
+    DEFINES['_DEFAULT_SOURCE'] = True
+
 NO_PGO = True # Don't PGO
 
 if CONFIG['GNU_CC']:

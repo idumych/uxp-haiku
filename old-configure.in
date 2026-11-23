@@ -2514,7 +2514,7 @@ dnl --enable-webrtc to override.  Can disable for everything in
 dnl the master list above.
 if test -n "$MOZ_WEBRTC"; then
     case "$target" in
-    *-linux*|*-mingw*|*-darwin*|*-dragonfly*|*-freebsd*|*-netbsd*|*-openbsd*)
+    *-linux*|*-mingw*|*-darwin*|*-dragonfly*|*-freebsd*|*-netbsd*|*-openbsd*|*-haiku*)
         dnl Leave enabled
         ;;
     *)

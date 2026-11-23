@@ -267,7 +267,7 @@ PluginInstanceParent::AnswerNPN_GetValue_NPNVnetscapeWindow(NativeWindowHandle* 
     HWND id;
 #elif defined(MOZ_X11)
     XID id;
-#elif defined(XP_DARWIN)
+#elif defined(XP_DARWIN) || defined(XP_HAIKU)
     intptr_t id;
 #else
 #warning Implement me

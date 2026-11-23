@@ -15,7 +15,8 @@
  * converted here to the stream's sample format and channel count and
  * linearly resampled to the stream rate. Input-only streams call the data
  * callback from the recorder thread; duplex streams queue converted input in
- * a FIFO that the output (BSoundPlayer) callback drains.
+ * a FIFO (in input-format frames, which may have fewer channels than the
+ * output) that the output (BSoundPlayer) callback drains.
  *
  * Device enumeration lists the physical input/output nodes known to
  * BMediaRoster. Streams always use the system default devices.
@@ -172,6 +173,7 @@ struct cubeb_stream {
   bool has_output;
   bool has_input;
   size_t frame_size;            /* bytes per stream frame */
+  size_t in_frame_size;         /* bytes per input frame (input params) */
   pthread_mutex_t mutex;
   uint64_t frames_written;      /* output frames handed to the mixer */
   uint64_t frames_read;         /* input frames delivered (input-only) */
@@ -241,7 +243,7 @@ haiku_play_buffer(void * cookie, void * buffer, size_t size,
     const void * input = NULL;
     if (stm->has_input) {
       /* Take up to `frames` frames of queued input, pad with silence. */
-      size_t want = frames * stm->frame_size;
+      size_t want = frames * stm->in_frame_size;
       stm->in_for_output.assign(want, 0);
       pthread_mutex_lock(&stm->mutex);
       size_t avail = stm->in_fifo.size();
@@ -299,21 +301,22 @@ haiku_record_buffer(void * cookie, bigtime_t timestamp, void * data,
   }
 
   if (stm->has_output) {
-    /* Duplex: queue for the output callback, capped at ~1 s. */
-    size_t cap = stm->params.rate * stm->frame_size;
+    /* Duplex: queue for the output callback. Input and output clocks drift
+     * apart, so cap the queue at ~100 ms to keep the latency low. */
+    size_t cap = (stm->params.rate / 10) * stm->in_frame_size;
     pthread_mutex_lock(&stm->mutex);
     stm->in_fifo.insert(stm->in_fifo.end(), stm->in_converted.begin(),
                         stm->in_converted.end());
     if (stm->in_fifo.size() > cap) {
       size_t drop = stm->in_fifo.size() - cap;
-      drop -= drop % stm->frame_size;
+      drop -= drop % stm->in_frame_size;
       stm->in_fifo.erase(stm->in_fifo.begin(), stm->in_fifo.begin() + drop);
     }
     pthread_mutex_unlock(&stm->mutex);
     return;
   }
 
-  long frames = bytes / stm->frame_size;
+  long frames = bytes / stm->in_frame_size;
   long got = stm->data_callback(stm, stm->user_ptr, &stm->in_converted[0],
                                 NULL, frames);
   if (got < 0) {
@@ -361,6 +364,30 @@ haiku_sample_format(cubeb_sample_format f, uint32 * fmt, uint32 * order,
 
 static void haiku_stream_destroy(cubeb_stream * stm);
 
+/* Connects |recorder| to a free output of the system's default audio input.
+ * BMediaRecorder::Connect(format) can pick a source that isn't free ("Bad
+ * source", seen with QEMU's HDA input), so name the node and output. */
+static status_t
+haiku_connect_default_input(BMediaRecorder * recorder,
+                            const media_format & accepted)
+{
+  BMediaRoster * roster = BMediaRoster::Roster();
+  media_node input;
+  if (!roster || roster->GetAudioInput(&input) != B_OK) {
+    return recorder->Connect(accepted);
+  }
+  media_output output;
+  int32 count = 0;
+  if (roster->GetFreeOutputsFor(input, &output, 1, &count,
+                                B_MEDIA_RAW_AUDIO) != B_OK || count < 1) {
+    roster->ReleaseNode(input);
+    return recorder->Connect(accepted);
+  }
+  status_t status = recorder->Connect(input, &output, &accepted);
+  roster->ReleaseNode(input);
+  return status;
+}
+
 static int
 haiku_stream_init(cubeb * context, cubeb_stream ** stream,
                   char const * stream_name,
@@ -393,11 +420,6 @@ haiku_stream_init(cubeb * context, cubeb_stream ** stream,
       input_stream_params->format != CUBEB_SAMPLE_FLOAT32NE) {
     return CUBEB_ERROR_INVALID_FORMAT;
   }
-  if (input_stream_params && output_stream_params &&
-      input_stream_params->channels != output_stream_params->channels) {
-    /* The duplex FIFO uses one frame size for both directions. */
-    return CUBEB_ERROR_NOT_SUPPORTED;
-  }
 
   cubeb_stream * stm = new cubeb_stream();
   stm->context = context;
@@ -410,6 +432,12 @@ haiku_stream_init(cubeb * context, cubeb_stream ** stream,
   stm->has_output = output_stream_params != NULL;
   stm->has_input = input_stream_params != NULL;
   stm->frame_size = sample_size * params->channels;
+  /* Duplex streams may have fewer input channels (a mono microphone with
+   * stereo output): the FIFO holds input-format frames. */
+  stm->in_frame_size = input_stream_params
+    ? (input_stream_params->format == CUBEB_SAMPLE_FLOAT32NE ? 4 : 2) *
+        input_stream_params->channels
+    : stm->frame_size;
   stm->frames_written = 0;
   stm->frames_read = 0;
   stm->draining = stm->drained = stm->errored = stm->running = false;
@@ -455,7 +483,7 @@ haiku_stream_init(cubeb * context, cubeb_stream ** stream,
     accepted.u.raw_audio = media_raw_audio_format::wildcard;
     stm->recorder->SetAcceptedFormat(accepted);
     if (stm->recorder->SetHooks(haiku_record_buffer, NULL, stm) != B_OK ||
-        stm->recorder->Connect(accepted) != B_OK) {
+        haiku_connect_default_input(stm->recorder, accepted) != B_OK) {
       haiku_stream_destroy(stm);
       return CUBEB_ERROR_DEVICE_UNAVAILABLE;
     }

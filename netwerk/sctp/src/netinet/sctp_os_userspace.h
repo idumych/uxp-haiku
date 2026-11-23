@@ -522,7 +522,7 @@ struct sx {int dummy;};
 #if !defined(_WIN32)
 #include <netinet/ip6.h>
 #endif
-#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__linux__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(_WIN32) || defined(__EMSCRIPTEN__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__linux__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(_WIN32) || defined(__EMSCRIPTEN__) || defined(__HAIKU__)
 #include "user_ip6_var.h"
 #else
 #include <netinet6/ip6_var.h>
@@ -1158,7 +1158,7 @@ in_broadcast(struct in_addr in)
 	        in.s_addr == htonl(INADDR_ANY));
 }
 
-#if defined(__APPLE__) || defined(__DragonFly__) || defined(__linux__) || defined(__native_client__) || defined(__NetBSD__) || defined(_WIN32) || defined(__Fuchsia__) || defined(__EMSCRIPTEN__)
+#if defined(__APPLE__) || defined(__DragonFly__) || defined(__linux__) || defined(__native_client__) || defined(__NetBSD__) || defined(_WIN32) || defined(__Fuchsia__) || defined(__EMSCRIPTEN__) || defined(__HAIKU__)
 int
 timingsafe_bcmp(const void *, const void *, size_t);
 #endif

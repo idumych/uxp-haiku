@@ -115,8 +115,9 @@ struct NPAudioDeviceChangeDetailsIPC
 typedef HWND NativeWindowHandle;
 #elif defined(MOZ_X11)
 typedef XID NativeWindowHandle;
-#elif defined(XP_DARWIN)
-typedef intptr_t NativeWindowHandle; // never actually used, will always be 0
+#elif defined(XP_DARWIN) || defined(XP_HAIKU)
+// Never actually used, always 0 (Haiku plugins could only be windowless).
+typedef intptr_t NativeWindowHandle;
 #else
 #error Need NativeWindowHandle for this platform
 #endif

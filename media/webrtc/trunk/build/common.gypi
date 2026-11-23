@@ -78,7 +78,7 @@
 
             # A flag for BSD platforms
             ['OS=="dragonfly" or OS=="freebsd" or OS=="netbsd" or \
-              OS=="openbsd"', {
+              OS=="openbsd" or OS=="haiku"', {
               'os_bsd%': 1,
             }, {
               'os_bsd%': 0,

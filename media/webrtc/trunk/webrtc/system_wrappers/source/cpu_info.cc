@@ -12,6 +12,8 @@
 
 #if defined(_WIN32)
 #include <Windows.h>
+#elif defined(WEBRTC_HAIKU)
+#include <unistd.h>
 #elif defined(WEBRTC_BSD) || defined(WEBRTC_MAC)
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -36,7 +38,7 @@ uint32_t CpuInfo::DetectNumberOfCores() {
     WEBRTC_TRACE(kTraceStateInfo, kTraceUtility, -1,
                  "Available number of cores:%d", number_of_cores_);
 
-#elif defined(WEBRTC_LINUX)
+#elif defined(WEBRTC_LINUX) || defined(WEBRTC_HAIKU)
     number_of_cores_ = static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN));
     WEBRTC_TRACE(kTraceStateInfo, kTraceUtility, -1,
                  "Available number of cores:%d", number_of_cores_);

@@ -1073,6 +1073,7 @@ interface/View.h
 interface/Window.h
 kernel/fs_attr.h
 LocaleRoster.h
+media/MediaAddOn.h
 media/MediaDefs.h
 media/MediaNode.h
 media/MediaRecorder.h

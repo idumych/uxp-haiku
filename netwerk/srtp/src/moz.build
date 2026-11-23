@@ -64,5 +64,8 @@ if CONFIG['OS_TARGET'] == 'WINNT':
     DEFINES['HAVE_WINSOCK2_H'] = True
     DEFINES['inline'] = '__inline'
 
+if CONFIG['OS_TARGET'] == 'Haiku':
+    DEFINES['DEV_URANDOM'] = '"/dev/urandom"'
+
 if CONFIG['GNU_CC']:
     CFLAGS += ['-std=gnu99']

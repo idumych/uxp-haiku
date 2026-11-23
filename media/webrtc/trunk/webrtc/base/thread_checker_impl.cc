@@ -20,6 +20,8 @@
 
 #if defined(__NetBSD__)
 #include <lwp.h>
+#elif defined(__HAIKU__)
+#include <OS.h>
 #elif defined(__FreeBSD__)
 #include <pthread_np.h>
 #endif
@@ -43,6 +45,8 @@ PlatformThreadId CurrentThreadId() {
   ret = reinterpret_cast<uintptr_t> (pthread_self());
 #elif defined(__FreeBSD__)
   ret = pthread_getthreadid_np();
+#elif defined(__HAIKU__)
+  ret = find_thread(NULL);
 #else
   // Default implementation for solaris.
   ret = reinterpret_cast<pid_t>(pthread_self());

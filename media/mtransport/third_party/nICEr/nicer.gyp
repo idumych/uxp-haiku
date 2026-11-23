@@ -183,6 +183,13 @@
 		 ],
               }],
 
+              ## Haiku: a BSD here, but without Sun RPC
+              [ 'OS == "haiku"', {
+                'defines' : [
+                    'NO_REG_RPC',
+                ],
+              }],
+
               ## Win
               [ 'OS == "win"', {
                 'defines' : [

@@ -547,7 +547,7 @@ DataChannelConnection::CompleteConnect(TransportFlow *flow, TransportLayer::Stat
   struct sockaddr_conn addr;
   memset(&addr, 0, sizeof(addr));
   addr.sconn_family = AF_CONN;
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__HAIKU__)
   addr.sconn_len = sizeof(addr);
 #endif
   addr.sconn_port = htons(mLocalPort);

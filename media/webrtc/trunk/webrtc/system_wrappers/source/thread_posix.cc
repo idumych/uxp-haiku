@@ -22,7 +22,9 @@
 #include <sys/types.h>
 #endif
 
-#if defined(WEBRTC_BSD) && !defined(__NetBSD__)
+#if defined(WEBRTC_HAIKU)
+#include <OS.h>
+#elif defined(WEBRTC_BSD) && !defined(__NetBSD__)
 #include <pthread_np.h>
 #endif
 
@@ -164,6 +166,8 @@ void ThreadPosix::Run() {
     prctl(PR_SET_NAME, reinterpret_cast<unsigned long>(name_.c_str()));
 #elif defined(__NetBSD__)
     pthread_setname_np(pthread_self(), "%s", (void *)name_.c_str());
+#elif defined(WEBRTC_HAIKU)
+    rename_thread(find_thread(NULL), name_.substr(0, B_OS_NAME_LENGTH - 1).c_str());
 #elif defined(WEBRTC_BSD)
     pthread_set_name_np(pthread_self(), name_.c_str());
 #elif defined(WEBRTC_MAC) && defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)

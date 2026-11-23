@@ -54,6 +54,8 @@
 #ifdef WIN32
 #include <winsock2.h>
 #include <errno.h>
+#elif defined(__HAIKU__)
+#include <errno.h>
 #else
 #include <sys/errno.h>
 #endif

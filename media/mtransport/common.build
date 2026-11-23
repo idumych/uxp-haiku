@@ -48,11 +48,13 @@ LOCAL_INCLUDES += [
     '/media/mtransport/third_party/nrappkit/src/util/libekr',
 ]
 
-if CONFIG['OS_TARGET'] in ['Darwin', 'DragonFly', 'FreeBSD', 'NetBSD', 'OpenBSD']:
+if CONFIG['OS_TARGET'] in ['Darwin', 'DragonFly', 'FreeBSD', 'Haiku', 'NetBSD', 'OpenBSD']:
     if CONFIG['OS_TARGET'] == 'Darwin':
         DEFINES['DARWIN'] = True
     else:
         DEFINES['BSD'] = True
+    if CONFIG['OS_TARGET'] == 'Haiku':
+        DEFINES['NO_REG_RPC'] = True
     LOCAL_INCLUDES += [
         '/media/mtransport/third_party/nrappkit/src/port/darwin/include',
     ]

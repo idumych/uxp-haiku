@@ -120,7 +120,7 @@ finish_random(void)
 {
 	return;
 }
-#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__Bitrig__)
+#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__Bitrig__) || defined(__HAIKU__)
 #include <stdlib.h>
 
 void
